@@ -1,6 +1,6 @@
 # Lyxal Encoding
 
-A modular, high-performance Rust workspace for various encoding standards. This repository serves as the foundational encoding layer for the [Lyxal Ecosystem](https://github.com/lyxal).
+A modular, high-performance Rust workspace for various encoding standards. This repository serves as the foundational encoding layer for the [Lyxal Ecosystem](https://github.com/LYXAL-LAB).
 
 ## 📦 Modules
 
@@ -18,7 +18,7 @@ Add the specific crate you need to your `Cargo.toml`:
 ```toml
 [dependencies]
 # Example: using the multibase crate
-multibase = { git = "https://github.com/lyxal/lyxal-encoding" }
+multibase = { git = "https://github.com/LYXAL-LAB/lyxal-encoding" }
 ```
 
 ## 🤝 Contributing
@@ -35,3 +35,14 @@ This project is licensed under either of:
  * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 at your option.
+
+## 🌟 Acknowledgements & Credits
+
+This project includes code forked from or heavily inspired by the following open-source projects. We are grateful to the original authors for their excellent work:
+
+*   **[multibase](https://github.com/multiformats/rust-multibase)** by the Multiformats Community.
+*   **[base-x](https://github.com/orph/rust-base-x)** by Orph.
+*   **[base256emoji](https://github.com/Jorropo/base256emoji)** by Jorropo.
+*   **[data-encoding](https://github.com/ia0/data-encoding)** by ia0.
+
+Modifications have been made to integrate these libraries into the Lyxal ecosystem.
