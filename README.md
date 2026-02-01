@@ -9,6 +9,7 @@ This workspace contains several crates dedicated to specific encoding schemes:
 - **`multibase`**: Implementation of the Multibase specification (self-identifying base encodings).
 - **`base-x`**: Fast and efficient base encoding/decoding.
 - **`base256emoji`**: A visual encoding scheme using a 256-emoji alphabet.
+- **`base45`**: Implementation of the Base45 encoding scheme, often used in QR codes.
 - **`data-encoding`**: Efficient data encoding utilities.
 
 ## 🚀 Usage
@@ -43,6 +44,7 @@ This project includes code forked from or heavily inspired by the following open
 *   **[multibase](https://github.com/multiformats/rust-multibase)** by the Multiformats Community.
 *   **[base-x](https://github.com/orph/rust-base-x)** by Orph.
 *   **[base256emoji](https://github.com/Jorropo/base256emoji)** by Jorropo.
+*   **[base45](https://github.com/opendevtools/base45)** by OpenDevTools.
 *   **[data-encoding](https://github.com/ia0/data-encoding)** by ia0.
 
 Modifications have been made to integrate these libraries into the Lyxal ecosystem.

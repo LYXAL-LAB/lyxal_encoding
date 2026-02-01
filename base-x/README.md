@@ -2,9 +2,9 @@
 
 **Moteur de conversion de base haute performance, sécurisé et certifié `no_std`.**
 
-`base-x` est le composant noyau de `lyxal_parser` responsable de la conversion bidirectionnelle entre données binaires et représentations textuelles dans n'importe quelle base (Base58, Base62, etc.). Cette version a été lourdement durcie pour répondre aux standards de sécurité critiques du noyau Lyxal.
+`base-x` est le composant noyau de `lyxal_encoding` responsable de la conversion bidirectionnelle entre données binaires et représentations textuelles dans n'importe quelle base (Base58, Base62, etc.). Cette version a été lourdement durcie pour répondre aux standards de sécurité critiques du noyau Lyxal.
 
-## 🛡 Garanties "Google-Grade"
+## 🛡 Garanties "Production-Grade"
 
 Ce module a été refabriqué pour offrir des garanties de robustesse maximales :
 

@@ -2,9 +2,9 @@
 
 **Moteur d'encodage de données standard (Base64, Base32, Hex) optimisé, sécurisé et certifié `no_std`.**
 
-`data-encoding` est le composant fondamental de `lyxal_parser` pour la gestion des formats d'encodage standardisés. Cette version V3 a été entièrement réécrite pour offrir des garanties de performance et de sécurité "Google Grade", essentielles pour le noyau Lyxal.
+`data-encoding` est le composant fondamental de `lyxal_encoding` pour la gestion des formats d'encodage standardisés. Cette version V3 a été entièrement réécrite pour offrir des garanties de performance et de sécurité "Production-Grade", essentielles pour le noyau Lyxal.
 
-## 🛡 Garanties "Google-Grade"
+## 🛡 Garanties "Production-Grade"
 
 Ce module respecte les standards les plus stricts de l'industrie :
 

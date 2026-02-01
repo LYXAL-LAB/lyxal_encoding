@@ -1,6 +1,6 @@
 # Lyxal Base256Emoji
 
-A high-performance, "Google-Grade" Base256Emoji encoding engine designed for Lyxal and SurrealDB.
+A high-performance, "Production-Grade" Base256Emoji encoding engine designed for Lyxal.
 
 ## Features
 
@@ -29,7 +29,7 @@ assert_eq!(data, decoded.as_slice());
 ```rust
 use lyxal_base256emoji::{encode_to_buffer, decode_to_buffer};
 
-let data = b"SurrealDB";
+let data = b"Lyxal Core";
 let mut enc_buf = [0u8; 128];
 let len = encode_to_buffer(data, &mut enc_buf).unwrap();
 
