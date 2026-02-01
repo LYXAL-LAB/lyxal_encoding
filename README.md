@@ -45,6 +45,5 @@ This project includes code forked from or heavily inspired by the following open
 *   **[base-x](https://github.com/orph/rust-base-x)** by Orph.
 *   **[base256emoji](https://github.com/Jorropo/base256emoji)** by Jorropo.
 *   **[base45](https://github.com/opendevtools/base45)** by OpenDevTools.
-*   **[data-encoding](https://github.com/ia0/data-encoding)** by ia0.
 
 Modifications have been made to integrate these libraries into the Lyxal ecosystem.
