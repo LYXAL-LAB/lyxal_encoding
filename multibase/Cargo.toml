@@ -1,0 +1,28 @@
+[package]
+name = "multibase"
+version = "0.9.2"
+edition = "2024"
+readme = "README.md"
+description = "multibase engine for lyxal_parser"
+
+[features]
+default = ["std"]
+std = ["data-encoding/std", "base45/std", "base-x/alloc", "alloc"]
+alloc = ["base-x/alloc", "data-encoding/alloc"]
+
+[dependencies]
+base-x = { workspace = true }
+base256emoji = { workspace = true }
+data-encoding = { workspace = true, features = ["alloc"] }
+data-encoding-macro = { workspace = true }
+base45 = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+rand = { workspace = true }
+
+[[bench]]
+name = "multibase"
+harness = false
+
+

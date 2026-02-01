@@ -1,0 +1,37 @@
+[package]
+name = "data-encoding"
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.85.0"
+description = "Efficient and customizable data-encoding functions like base64, base32, and hex"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg=docsrs"]
+
+[features]
+default = ["std"]
+std = ["alloc"]
+alloc = []
+
+[dev-dependencies]
+criterion = { workspace = true }
+proptest = { workspace = true }
+
+[[bench]]
+name = "benchmark"
+harness = false
+
+[lints]
+rust.elided-lifetimes-in-paths = "warn"
+rust.let-underscore-drop = "warn"
+rust.missing-debug-implementations = "warn"
+rust.missing-docs = "warn"
+rust.unreachable-pub = "warn"
+rust.unused-results = "warn"
+clippy.pedantic = { level = "warn", priority = -1 }
+clippy.assigning-clones = "allow"
+clippy.doc-markdown = "allow"
+clippy.enum-glob-use = "allow"
+clippy.match-bool = "allow"
+clippy.semicolon-if-nothing-returned = "allow"
+clippy.similar-names = "allow"

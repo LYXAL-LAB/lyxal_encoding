@@ -1,0 +1,20 @@
+[package]
+name = "base-x"
+version = "0.0.1"
+edition = "2024"
+description = "base-x engine for lyxal_parser"
+
+[dev-dependencies]
+json = { workspace = true }
+criterion = { workspace = true }
+rand = { workspace = true }
+proptest = { workspace = true }
+
+[[bench]]
+name = "base"
+harness = false
+
+[features]
+default = ["std"]
+std = ["alloc"]
+alloc = []

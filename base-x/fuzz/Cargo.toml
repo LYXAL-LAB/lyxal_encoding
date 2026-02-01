@@ -1,0 +1,17 @@
+[package]
+name = "base-x-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2021"
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.base-x]
+path = ".."
+features = ["alloc"]
+
+# Prevent binary from being linked with standard library twice
+[profile.release]
+debug = true

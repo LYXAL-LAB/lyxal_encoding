@@ -1,0 +1,19 @@
+[package]
+name = "lyxal-base256emoji-fuzz"
+version = "0.0.1"
+authors = ["Antigravity"]
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.5"
+lyxal-base256emoji = { path = "C:/Users/Administrator/Downloads/Lyxal_Solution-main/surrealdb-3.0.0-beta.2/lyxal_encoding/base256emoji" }
+
+[[bin]]
+name = "emoji_roundtrip"
+path = "fuzz_targets/emoji_roundtrip.rs"
+test = false
+doc = false

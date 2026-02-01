@@ -1,0 +1,91 @@
+   0.235970800s  INFO prepare_target{force=false package_id=multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase) target="multibase"}: cargo::core::compiler::fingerprint: dependency on `base_x` is newer than we are 13414204493.281418300s > 13414200736.881291500s "C:\\Users\\Administrator\\Downloads\\Lyxal_Solution-main\\lyxal_parser\\multibase"
+   0.236348200s  INFO prepare_target{force=false package_id=multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase) target="multibase"}: cargo::core::compiler::fingerprint: fingerprint dirty for multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase)/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("multibase", ["lib"], "C:\\Users\\Administrator\\Downloads\\Lyxal_Solution-main\\lyxal_parser\\multibase\\src\\lib.rs", Edition2024) }
+   0.236422300s  INFO prepare_target{force=false package_id=multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase) target="multibase"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(StaleDependency { name: "base_x", dep_mtime: FileTime { seconds: 13414204493, nanos: 281418300 }, max_mtime: FileTime { seconds: 13414200736, nanos: 881291500 } })
+   0.240456100s  INFO prepare_target{force=false package_id=multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase) target="multibase"}: cargo::core::compiler::fingerprint: fingerprint error for multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase)/Check { test: true }/TargetInner { name_inferred: true, ..: lib_target("multibase", ["lib"], "C:\\Users\\Administrator\\Downloads\\Lyxal_Solution-main\\lyxal_parser\\multibase\\src\\lib.rs", Edition2024) }
+   0.240514000s  INFO prepare_target{force=false package_id=multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase) target="multibase"}: cargo::core::compiler::fingerprint:     err: failed to read `C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\target\debug\.fingerprint\multibase-d2a655d0b8935d0c\test-lib-multibase`
+
+Caused by:
+    The system cannot find the file specified. (os error 2)
+
+Stack backtrace:
+   0: git_midx_writer_dump
+   1: git_midx_writer_dump
+   2: git_midx_writer_dump
+   3: git_midx_writer_dump
+   4: git_filter_source_repo
+   5: git_filter_source_repo
+   6: git_filter_source_repo
+   7: git_filter_source_repo
+   8: git_filter_source_repo
+   9: git_filter_source_repo
+  10: git_filter_source_repo
+  11: git_libgit2_prerelease
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: git_midx_writer_dump
+  17: git_filter_source_repo
+  18: git_midx_writer_dump
+  19: BaseThreadInitThunk
+  20: RtlUserThreadStart
+   0.257237100s  INFO prepare_target{force=false package_id=multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase) target="lib"}: cargo::core::compiler::fingerprint: fingerprint error for multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase)/Check { test: true }/TargetInner { kind: "test", name: "lib", benched: false, ..: with_path("C:\\Users\\Administrator\\Downloads\\Lyxal_Solution-main\\lyxal_parser\\multibase\\tests\\lib.rs", Edition2024) }
+   0.257298200s  INFO prepare_target{force=false package_id=multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase) target="lib"}: cargo::core::compiler::fingerprint:     err: failed to read `C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\target\debug\.fingerprint\multibase-3cd8e621e9a3d634\test-integration-test-lib`
+
+Caused by:
+    The system cannot find the file specified. (os error 2)
+
+Stack backtrace:
+   0: git_midx_writer_dump
+   1: git_midx_writer_dump
+   2: git_midx_writer_dump
+   3: git_midx_writer_dump
+   4: git_filter_source_repo
+   5: git_filter_source_repo
+   6: git_filter_source_repo
+   7: git_filter_source_repo
+   8: git_filter_source_repo
+   9: git_filter_source_repo
+  10: git_filter_source_repo
+  11: git_libgit2_prerelease
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: git_midx_writer_dump
+  17: git_filter_source_repo
+  18: git_midx_writer_dump
+  19: BaseThreadInitThunk
+  20: RtlUserThreadStart
+   0.258285100s  INFO prepare_target{force=false package_id=multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase) target="multibase"}: cargo::core::compiler::fingerprint: fingerprint error for multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase)/Check { test: true }/TargetInner { kind: "bench", name: "multibase", tested: false, harness: false, ..: with_path("C:\\Users\\Administrator\\Downloads\\Lyxal_Solution-main\\lyxal_parser\\multibase\\benches\\multibase.rs", Edition2024) }
+   0.258315900s  INFO prepare_target{force=false package_id=multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase) target="multibase"}: cargo::core::compiler::fingerprint:     err: failed to read `C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\target\debug\.fingerprint\multibase-a66513fe2dfc8b9c\test-bench-multibase`
+
+Caused by:
+    The system cannot find the file specified. (os error 2)
+
+Stack backtrace:
+   0: git_midx_writer_dump
+   1: git_midx_writer_dump
+   2: git_midx_writer_dump
+   3: git_midx_writer_dump
+   4: git_filter_source_repo
+   5: git_filter_source_repo
+   6: git_filter_source_repo
+   7: git_filter_source_repo
+   8: git_filter_source_repo
+   9: git_filter_source_repo
+  10: git_filter_source_repo
+  11: git_libgit2_prerelease
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: git_midx_writer_dump
+  17: git_filter_source_repo
+  18: git_midx_writer_dump
+  19: BaseThreadInitThunk
+  20: RtlUserThreadStart
+    Checking multibase v0.9.2 (C:\Users\Administrator\Downloads\Lyxal_Solution-main\lyxal_parser\multibase)
+error: could not compile `multibase` (lib) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `multibase` (lib test) due to 2 previous errors

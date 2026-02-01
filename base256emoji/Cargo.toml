@@ -1,0 +1,21 @@
+[package]
+name = "lyxal-base256emoji"
+version = "0.0.1"
+edition = "2024"
+description = "Hardened Base256Emoji engine for Lyxal"
+
+[features]
+default = ["std"]
+std = ["alloc"]
+alloc = []
+
+[dev-dependencies]
+criterion = { workspace = true }
+proptest = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+hex = { workspace = true }
+
+[[bench]]
+name = "emoji_bench"
+harness = false

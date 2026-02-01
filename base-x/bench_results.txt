@@ -1,0 +1,41 @@
+cargo :     Finished `bench` profile 
+[optimized] target(s) in 0.08s
+At line:1 char:1
++ cargo bench 2>&1 | Out-File 
+-Encoding ascii bench_results.txt; 
+Get-Co ...
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpeci 
+   fied: (    Finished `b...get(s) in  
+   0.08s:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCo 
+   mmandError
+ 
+     Running unittests src\lib.rs (C:\U
+sers\Administrator\Downloads\Lyxal_Solu
+tion-main\lyxal_parser\target\release\d
+eps\base_x-56791cfa9188663b.exe)
+
+running 2 tests
+test test::is_unicode_sound ... ignored
+test test::works ... ignored
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running benches\base.rs (C:\Users\
+Administrator\Downloads\Lyxal_Solution-
+main\lyxal_parser\target\release\deps\b
+ase-1907edefb5194d46.exe)
+
+running 8 tests
+test decode_base16          ... bench:       5,958 ns/iter (+/- 2,753)
+test decode_base2           ... bench:      15,194 ns/iter (+/- 3,251)
+test decode_base58          ... bench:       3,539 ns/iter (+/- 1,467)
+test decode_base58_no_alloc ... bench:       1,967 ns/iter (+/- 3,210)
+test encode_base16          ... bench:       5,766 ns/iter (+/- 739)
+test encode_base2           ... bench:      11,252 ns/iter (+/- 1,109)
+test encode_base58          ... bench:       4,631 ns/iter (+/- 600)
+test encode_base58_no_alloc ... bench:       4,231 ns/iter (+/- 470)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 8 measured
+
