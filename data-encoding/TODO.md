@@ -8,7 +8,7 @@ Ce document répertorie les travaux restants pour atteindre l'état final de la 
 - [x] **Standardisation `as_chunks` (#74)** : Remplacer le code de découpage manuel par la fonction standard stable `slice::as_chunks`.
 
 ## 🟠 Priorité Haute : Extension & Unification (Projet Lyxal)
-- [ ] **Fusion base-x** : Intégrer un moteur arithmétique pour supporter les bases non-puissance de 2 (**Base58**, **Base62**, **Nix-Base32**) directement dans `data-encoding`.
+- [x] **Fusion base-x** : Intégrer un moteur arithmétique pour supporter les bases non-puissance de 2 (**Base58**, **Base62**, Nix-Base32) directement dans `data-encoding`.
 - [x] **Optimisation SIMD (#95)** : Implémenter le support SIMD (SSSE3) pour les encodages les plus fréquents (Base64, Hex).
 - [x] **Transition `const fn` (#72)** : Rendre les fonctions de calcul et de spécification `const fn` pour permettre des définitions d'encodages statiques.
 

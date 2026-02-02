@@ -1,6 +1,6 @@
 # Lyxal Engine: Data Encoding
 
-**Moteur d'encodage de données standard (Base64, Base32, Hex) ultra-performant, sécurisé et certifié `no_std`.**
+**Moteur d'encodage de données standard (Base64, Base58, Base62, Base32, Hex) ultra-performant, sécurisé et certifié `no_std`.**
 
 `data-encoding` est le composant cœur de la suite `lyxal_encoding`. Ce moteur représente l'état de l'art en matière d'encodage de données pour Rust, combinant des optimisations matérielles SIMD avec des garanties de sécurité strictes pour les systèmes critiques.
 
@@ -86,6 +86,8 @@ let my_hex = spec.encoding().expect("Spécification invalide");
 |-----------|----------|--------------|
 | `HEXLOWER` | Base16 | SIMD SSSE3 |
 | `BASE32` | Base32 | Scalaire Vectorisé |
+| `BASE58` | Base58 | Arithmétique (Bitcoin) |
+| `BASE62` | Base62 | Arithmétique |
 | `BASE64` | Base64 | SIMD SSSE3 |
 | `BASE64URL`| Base64Url| SIMD SSSE3 |
 | `BASE64_MIME`| Base64 | Scalaire Vectorisé |
