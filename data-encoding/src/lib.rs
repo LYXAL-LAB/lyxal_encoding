@@ -18,113 +18,6 @@
 //! - most and least significant [bit-order]
 //! - [ignoring] characters when decoding (e.g. for skipping newlines)
 //! - [wrapping] the output when encoding (inlined up to 15 bytes)
-//! - no-std environments with `default-features = false, features = ["alloc"]`
-//! - no-alloc environments with `default-features = false`
-//!
-//! You may use the [binary] or the [website] to play around.
-//!
-//! # Examples
-//!
-//! This crate provides predefined encodings as [constants]. These constants are of type
-//! [`Encoding`]. This type provides encoding and decoding functions with in-place or allocating
-//! variants. Here is an example using the allocating encoding function of [`BASE64`]:
-//!
-//! ```rust
-//! use data_encoding::BASE64;
-//! assert_eq!(BASE64.encode(b"Hello world"), "SGVsbG8gd29ybGQ=");
-//! ```
-//!
-//! Here is an example using the in-place decoding function of [`BASE32`]:
-//!
-//! ```rust
-//! use data_encoding::BASE32;
-//! let input = b"JBSWY3DPEB3W64TMMQ======";
-//! let mut output = vec![0; BASE32.decode_len(input.len()).expect("input too large")];
-//! let len = BASE32.decode_mut(input, &mut output).expect("invalid base32");
-//! assert_eq!(&output[0 .. len], b"Hello world");
-//! ```
-//!
-//! You are not limited to the predefined encodings. You may define your own encodings (with the
-//! same correctness and performance properties as the predefined ones) using the [`Specification`]
-//! type:
-//!
-//! ```rust
-//! use data_encoding::Specification;
-//! let hex = {
-//!     let mut spec = Specification::new();
-//!     spec.symbols.push_str("0123456789abcdef");
-//!     spec.encoding().expect("invalid specification")
-//! };
-//! assert_eq!(hex.encode(b"hello"), "68656c6c6f");
-//! ```
-//!
-//! You may use the [macro] library to define a compile-time custom encoding:
-//!
-//! ```rust,ignore
-//! use data_encoding::Encoding;
-//! use data_encoding_macro::new_encoding;
-//! const HEX: Encoding = new_encoding!{
-//!     symbols: "0123456789abcdef",
-//!     translate_from: "ABCDEF",
-//!     translate_to: "abcdef",
-//! };
-//! const BASE64: Encoding = new_encoding!{
-//!     symbols: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
-//!     padding: '=',
-//! };
-//! ```
-//!
-//! # Properties
-//!
-//! The [`HEXUPPER`], [`BASE32`], [`BASE32HEX`], [`BASE64`], and [`BASE64URL`] predefined encodings
-//! conform to [RFC4648].
-//!
-//! In general, the encoding and decoding functions satisfy the following properties:
-//!
-//! - They are deterministic: their output only depends on their input
-//! - They have no side-effects: they do not modify any hidden mutable state
-//! - They are correct: encoding followed by decoding gives the initial data
-//! - They are canonical (unless [`is_canonical`] returns false): decoding followed by encoding
-//!   gives the initial data
-//!
-//! This last property is usually not satisfied by base64 implementations. This is a matter of
-//! choice and this crate has made the choice to let the user choose. Support for canonical encoding
-//! as described by the [RFC][canonical] is provided. But it is also possible to disable checking
-//! trailing bits, to add characters translation, to decode concatenated padded inputs, and to
-//! ignore some characters. Note that non-canonical encodings may be an attack vector as described
-//! in [Base64 Malleability in Practice](https://eprint.iacr.org/2022/361.pdf).
-//!
-//! Since the RFC specifies the encoding function on all inputs and the decoding function on all
-//! possible encoded outputs, the differences between implementations come from the decoding
-//! function which may be more or less permissive. In this crate, the decoding function of canonical
-//! encodings rejects all inputs that are not a possible output of the encoding function. Here are
-//! some concrete examples of decoding differences between this crate, the `base64` crate, and the
-//! `base64` GNU program:
-//!
-//! | Input      | `data-encoding` | `base64`  | GNU `base64`  |
-//! | ---------- | --------------- | --------- | ------------- |
-//! | `AAB=`     | `Trailing(2)`   | `Last(2)` | `\x00\x00`    |
-//! | `AA\nB=`   | `Length(4)`     | `Byte(2)` | `\x00\x00`    |
-//! | `AAB`      | `Length(0)`     | `Padding` | Invalid input |
-//! | `AAA`      | `Length(0)`     | `Padding` | Invalid input |
-//! | `A\rA\nB=` | `Length(4)`     | `Byte(1)` | Invalid input |
-//! | `-_\r\n`   | `Symbol(0)`     | `Byte(0)` | Invalid input |
-//! | `AA==AA==` | `[0, 0]`        | `Byte(2)` | `\x00\x00`    |
-//!
-//! We can summarize these discrepancies as follows:
-//!
-//! | Discrepancy                | `data-encoding` | `base64` | GNU `base64` |
-//! | -------------------------- | --------------- | -------- | ------------ |
-//! | Check trailing bits        | Yes             | Yes      | No           |
-//! | Ignored characters         | None            | None     | `\n`         |
-//! | Translated characters      | None            | None     | None         |
-//! | Check padding              | Yes             | No       | Yes          |
-//! | Support concatenated input | Yes             | No       | Yes          |
-//!
-//! This crate permits to disable checking trailing bits. It permits to ignore some characters. It
-//! permits to translate characters. It permits to use unpadded encodings. However, for padded
-//! encodings, support for concatenated inputs cannot be disabled. This is simply because it doesn't
-//! make sense to use padding if it is not to support concatenated inputs.
 //!
 //! [RFC4648]: https://tools.ietf.org/html/rfc4648
 //! [`BASE32HEX`]: constant.BASE32HEX.html
@@ -148,15 +41,15 @@
 //! [trailing bits]: struct.Specification.html#structfield.check_trailing_bits
 //! [translation]: struct.Specification.html#structfield.translate
 //! [website]: https://data-encoding.rs
-//! [wrapping]: struct.Specification.html#structfield.wrap
 
 #![no_std]
-#![cfg_attr(docsrs, feature(doc_cfg))]
+#![warn(unused_results)]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
-#[cfg(feature = "std")]
-extern crate std;
 
 #[cfg(feature = "alloc")]
 use alloc::borrow::ToOwned;
@@ -177,6 +70,7 @@ use core::debug_assert as safety_assert;
 // Arithmetic encoding modules for non-power-of-two bases
 mod arithmetic;
 mod bigint;
+mod data;
 
 macro_rules! check {
 	($e: expr, $c: expr) => {
@@ -187,15 +81,17 @@ macro_rules! check {
 }
 
 /// Padding mode
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+///
+/// This mode is used when decoding to handle the padding characters.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PaddingMode {
-	/// No padding
+	/// No padding is used.
 	None,
-	/// Standard RFC 4648 padding
+	/// Standard padding (as defined in RFC 4648).
 	Standard,
-	/// Padding is concatenated
+	/// All bytes in a concatenated input must be padded.
 	PadConcat,
-	/// Padding is only at the very end
+	/// Only the last byte in a concatenated input may be padded.
 	PadFinal,
 }
 
@@ -222,7 +118,7 @@ trait IgnoreTrait: Static<bool> {
 }
 
 macro_rules! define_bit {
-	($name: ident, $bit: expr) => {
+	($name: ident, $bit: expr, $enc: expr, $dec: expr) => {
 		#[derive(Copy, Clone)]
 		struct $name;
 		impl Static<usize> for $name {
@@ -232,18 +128,18 @@ macro_rules! define_bit {
 		}
 		impl BitWidth for $name {
 			const BIT: usize = $bit;
-			const ENC: usize = enc($bit);
-			const DEC: usize = dec($bit);
+			const ENC: usize = $enc;
+			const DEC: usize = $dec;
 		}
 	};
 }
 
-define_bit!(N1, 1);
-define_bit!(N2, 2);
-define_bit!(N3, 3);
-define_bit!(N4, 4);
-define_bit!(N5, 5);
-define_bit!(N6, 6);
+define_bit!(B1, 1, 8, 1);
+define_bit!(B2, 2, 4, 1);
+define_bit!(B3, 3, 8, 3);
+define_bit!(B4, 4, 2, 1);
+define_bit!(B5, 5, 8, 5);
+define_bit!(B6, 6, 4, 3);
 
 #[derive(Copy, Clone)]
 struct Bf;
@@ -252,9 +148,11 @@ impl Static<bool> for Bf {
 		false
 	}
 }
+
 impl BitOrderTrait for Bf {
 	const MSB: bool = false;
 }
+
 impl IgnoreTrait for Bf {
 	const IGNORE: bool = false;
 }
@@ -266,9 +164,11 @@ impl Static<bool> for Bt {
 		true
 	}
 }
+
 impl BitOrderTrait for Bt {
 	const MSB: bool = true;
 }
+
 impl IgnoreTrait for Bt {
 	const IGNORE: bool = true;
 }
@@ -280,6 +180,7 @@ impl Static<PaddingMode> for Pn {
 		PaddingMode::None
 	}
 }
+
 impl PaddingTrait for Pn {
 	const MODE: PaddingMode = PaddingMode::None;
 }
@@ -291,6 +192,7 @@ impl Static<PaddingMode> for Ps {
 		PaddingMode::Standard
 	}
 }
+
 impl PaddingTrait for Ps {
 	const MODE: PaddingMode = PaddingMode::Standard;
 }
@@ -302,6 +204,7 @@ impl Static<PaddingMode> for Pc {
 		PaddingMode::PadConcat
 	}
 }
+
 impl PaddingTrait for Pc {
 	const MODE: PaddingMode = PaddingMode::PadConcat;
 }
@@ -313,13 +216,13 @@ impl Static<PaddingMode> for Pf {
 		PaddingMode::PadFinal
 	}
 }
+
 impl PaddingTrait for Pf {
 	const MODE: PaddingMode = PaddingMode::PadFinal;
 }
 
 #[derive(Copy, Clone)]
 struct On;
-
 impl<T: Copy> Static<Option<T>> for On {
 	fn val(self) -> Option<T> {
 		None
@@ -327,8 +230,7 @@ impl<T: Copy> Static<Option<T>> for On {
 }
 
 #[derive(Copy, Clone)]
-struct Os<T>(T);
-
+struct Os<T: Copy>(T);
 impl<T: Copy> Static<Option<T>> for Os<T> {
 	fn val(self) -> Option<T> {
 		Some(self.0)
@@ -336,115 +238,103 @@ impl<T: Copy> Static<Option<T>> for Os<T> {
 }
 
 macro_rules! dispatch {
-    (let $var: ident: bool = $val: expr; $($body: tt)*) => {
-        if $val {
-            let $var = Bt; dispatch!($($body)*)
-        } else {
-            let $var = Bf; dispatch!($($body)*)
-        }
-    };
-    (let $var: ident: PaddingMode = $val: expr; $($body: tt)*) => {
-        match $val {
-            PaddingMode::None => { let $var = Pn; dispatch!($($body)*) },
-            PaddingMode::Standard => { let $var = Ps; dispatch!($($body)*) },
-            PaddingMode::PadConcat => { let $var = Pc; dispatch!($($body)*) },
-            PaddingMode::PadFinal => { let $var = Pf; dispatch!($($body)*) },
-        }
-    };
-    (let $var: ident: usize = $val: expr; $($body: tt)*) => {
-        match $val {
-            1 => { let $var = N1; dispatch!($($body)*) },
-            2 => { let $var = N2; dispatch!($($body)*) },
-            3 => { let $var = N3; dispatch!($($body)*) },
-            4 => { let $var = N4; dispatch!($($body)*) },
-            5 => { let $var = N5; dispatch!($($body)*) },
-            6 => { let $var = N6; dispatch!($($body)*) },
-            _ => unreachable!(),
-        }
-    };
-    (let $var: ident: Option<$type: ty> = $val: expr; $($body: tt)*) => {
-        match $val {
-            None => { let $var = On; dispatch!($($body)*) },
-            Some(x) => { let $var = Os(x); dispatch!($($body)*) },
-        }
-    };
-    ($body: expr) => { $body };
-}
-
-fn div_ceil(x: usize, m: usize) -> Option<usize> {
-	if x == 0 {
-		Some(0)
-	} else {
-		let x = x.checked_sub(1)?;
-		Some(x / m + 1)
-	}
-}
-
-fn floor(x: usize, m: usize) -> usize {
-	x / m * m
-}
-
-#[inline]
-fn vectorize<F: FnMut(usize)>(n: usize, bs: usize, mut f: F) {
-	for k in 0..n / bs {
-		for i in k * bs..(k + 1) * bs {
-			f(i);
+	(let $var: ident: bool = $val: expr; $($body: tt)*) => {
+		if $val {
+			let $var = Bt; dispatch!($($body)*)
+		} else {
+			let $var = Bf; dispatch!($($body)*)
 		}
+	};
+	(let $var: ident: PaddingMode = $val: expr; $($body: tt)*) => {
+		match $val {
+			PaddingMode::None => { let $var = Pn; dispatch!($($body)*) },
+			PaddingMode::Standard => { let $var = Ps; dispatch!($($body)*) },
+			PaddingMode::PadConcat => { let $var = Pc; dispatch!($($body)*) },
+			PaddingMode::PadFinal => { let $var = Pf; dispatch!($($body)*) },
+		}
+	};
+	(let $var: ident: usize = $val: expr; $($body: tt)*) => {
+		match $val {
+			1 => { let $var = B1; dispatch!($($body)*) },
+			2 => { let $var = B2; dispatch!($($body)*) },
+			3 => { let $var = B3; dispatch!($($body)*) },
+			4 => { let $var = B4; dispatch!($($body)*) },
+			5 => { let $var = B5; dispatch!($($body)*) },
+			6 => { let $var = B6; dispatch!($($body)*) },
+			_ => unreachable!(),
+		}
+	};
+	(let $var: ident: Option<$type: ty> = $val: expr; $($body: tt)*) => {
+		match $val {
+			None => { let $var = On; dispatch!($($body)*) },
+			Some(x) => { let $var = Os(x); dispatch!($($body)*) },
+		}
+	};
+	($body: expr) => { $body };
+}
+
+fn div_ceil(a: usize, b: usize) -> Option<usize> {
+	if b == 0 {
+		return None;
 	}
-	for i in floor(n, bs)..n {
-		f(i);
+	let d = a / b;
+	if a % b == 0 {
+		Some(d)
+	} else {
+		d.checked_add(1)
 	}
 }
 
-/// Decoding error kind
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+fn floor(a: usize, b: usize) -> usize {
+	a - a % b
+}
+
+fn vectorize<T, const N: usize>(slice: &[T]) -> (&[T], &[[T; N]], &[T]) {
+	let (start, mid) = slice.split_at(slice.as_ptr() as usize % N);
+	let (mid, end) = mid.split_at(floor(mid.len(), N));
+	let mid = unsafe { core::slice::from_raw_parts(mid.as_ptr() as *const [T; N], mid.len() / N) };
+	(start, mid, end)
+}
+
+/// Kind of decoding error
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DecodeKind {
-	/// Invalid length
+	/// Invalid input length.
 	Length,
-
-	/// Invalid symbol
+	/// Invalid input symbol.
 	Symbol,
-
-	/// Non-zero trailing bits
+	/// Non-zero trailing bits.
 	Trailing,
-
-	/// Invalid padding length
+	/// Invalid padding.
 	Padding,
-
-	/// Output buffer too small
+	/// Output buffer too small.
 	BufferTooSmall,
-
-	/// Input too large
+	/// Big integer overflow.
 	Overflow,
 }
 
 impl core::fmt::Display for DecodeKind {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		let description = match self {
-			DecodeKind::Length => "invalid length",
-			DecodeKind::Symbol => "invalid symbol",
-			DecodeKind::Trailing => "non-zero trailing bits",
-			DecodeKind::Padding => "invalid padding length",
-			DecodeKind::BufferTooSmall => "output buffer too small",
-			DecodeKind::Overflow => "input too large",
-		};
-		write!(f, "{description}")
+		match self {
+			DecodeKind::Length => write!(f, "invalid length"),
+			DecodeKind::Symbol => write!(f, "invalid symbol"),
+			DecodeKind::Trailing => write!(f, "non-zero trailing bits"),
+			DecodeKind::Padding => write!(f, "invalid padding"),
+			DecodeKind::BufferTooSmall => write!(f, "buffer too small"),
+			DecodeKind::Overflow => write!(f, "overflow"),
+		}
 	}
 }
 
 /// Decoding error
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DecodeError {
-	/// Error position
-	///
-	/// This position is always a valid input position and represents the first encountered error.
+	/// Position in the input where the error occurred.
 	pub position: usize,
-
-	/// Error kind
+	/// Kind of error.
 	pub kind: DecodeKind,
 }
 
-#[cfg(feature = "std")]
 impl std::error::Error for DecodeError {}
 
 impl core::fmt::Display for DecodeError {
@@ -453,34 +343,31 @@ impl core::fmt::Display for DecodeError {
 	}
 }
 
-/// Encoding error kind
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+/// Kind of encoding error
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EncodeKind {
-	/// Output buffer too small
+	/// Output buffer too small.
 	BufferTooSmall,
-
-	/// Input too large
+	/// Input too large for arithmetic encoding.
 	Overflow,
 }
 
 impl core::fmt::Display for EncodeKind {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		let description = match self {
-			EncodeKind::BufferTooSmall => "output buffer too small",
-			EncodeKind::Overflow => "input too large",
-		};
-		write!(f, "{description}")
+		match self {
+			EncodeKind::BufferTooSmall => write!(f, "buffer too small"),
+			EncodeKind::Overflow => write!(f, "overflow"),
+		}
 	}
 }
 
 /// Encoding error
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EncodeError {
-	/// Error kind
+	/// Kind of error.
 	pub kind: EncodeKind,
 }
 
-#[cfg(feature = "std")]
 impl std::error::Error for EncodeError {}
 
 impl core::fmt::Display for EncodeError {
@@ -490,1023 +377,892 @@ impl core::fmt::Display for EncodeError {
 }
 
 /// Partial decoding result
-///
-/// If an error occurred, `error` contains the details and the output is valid up to `written`.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DecodePartial {
-	/// Number of bytes read from input
-	///
-	/// This number does not exceed the error position: `read <= error.position`.
+	/// Number of bytes read from the input.
 	pub read: usize,
-
-	/// Number of bytes written to output
-	///
-	/// This number does not exceed the decoded length: `written <= decode_len(read)`.
+	/// Number of bytes written to the output.
 	pub written: usize,
-
-	/// Decoding error
+	/// Decoding error.
 	pub error: DecodeError,
 }
 
 const INVALID: u8 = 128;
 
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3"))]
-fn encode_base64_simd(symbols: &[u8; 256], input: &[u8], output: &mut [u8]) -> Option<usize> {
-	if input.len() < 12 || output.len() < 16 {
-		return None;
-	}
-	let is_std =
-		&symbols[0..64] == b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	let is_url =
-		&symbols[0..64] == b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-	if !is_std && !is_url {
-		return None;
-	}
-
-	let n = input.len() / 12;
-	for i in 0..n {
-		unsafe {
-			let src =
-				x86_simd::_mm_loadu_si128(input.as_ptr().add(i * 12) as *const x86_simd::__m128i);
-
-			let shuf = x86_simd::_mm_setr_epi8(1, 0, 2, 1, 4, 3, 5, 4, 7, 6, 8, 7, 10, 9, 11, 10);
-			let x = x86_simd::_mm_shuffle_epi8(src, shuf);
-
-			let t0 = x86_simd::_mm_and_si128(x, x86_simd::_mm_set1_epi32(0x0fc0fc00));
-			let t1 = x86_simd::_mm_and_si128(x, x86_simd::_mm_set1_epi32(0x003f03f0));
-
-			let indices = x86_simd::_mm_or_si128(
-				x86_simd::_mm_srli_epi16(t0, 6),
-				x86_simd::_mm_slli_epi16(t1, 8),
-			);
-
-			let mut result = x86_simd::_mm_add_epi8(indices, x86_simd::_mm_set1_epi8(65));
-			let mut mask = x86_simd::_mm_cmpgt_epi8(indices, x86_simd::_mm_set1_epi8(25));
-			result = x86_simd::_mm_add_epi8(
-				result,
-				x86_simd::_mm_and_si128(mask, x86_simd::_mm_set1_epi8(6)),
-			);
-			mask = x86_simd::_mm_cmpgt_epi8(indices, x86_simd::_mm_set1_epi8(51));
-			result = x86_simd::_mm_sub_epi8(
-				result,
-				x86_simd::_mm_and_si128(mask, x86_simd::_mm_set1_epi8(75)),
-			);
-			mask = x86_simd::_mm_cmpgt_epi8(indices, x86_simd::_mm_set1_epi8(61));
-			result = x86_simd::_mm_sub_epi8(
-				result,
-				x86_simd::_mm_and_si128(mask, x86_simd::_mm_set1_epi8(15)),
-			);
-
-			if is_std {
-				mask = x86_simd::_mm_cmpeq_epi8(indices, x86_simd::_mm_set1_epi8(62));
-				result = x86_simd::_mm_or_si128(
-					x86_simd::_mm_andnot_si128(mask, result),
-					x86_simd::_mm_and_si128(mask, x86_simd::_mm_set1_epi8(b'+' as i8)),
-				);
-				mask = x86_simd::_mm_cmpeq_epi8(indices, x86_simd::_mm_set1_epi8(63));
-				result = x86_simd::_mm_or_si128(
-					x86_simd::_mm_andnot_si128(mask, result),
-					x86_simd::_mm_and_si128(mask, x86_simd::_mm_set1_epi8(b'/' as i8)),
-				);
-			} else {
-				mask = x86_simd::_mm_cmpeq_epi8(indices, x86_simd::_mm_set1_epi8(62));
-				result = x86_simd::_mm_or_si128(
-					x86_simd::_mm_andnot_si128(mask, result),
-					x86_simd::_mm_and_si128(mask, x86_simd::_mm_set1_epi8(b'-' as i8)),
-				);
-				mask = x86_simd::_mm_cmpeq_epi8(indices, x86_simd::_mm_set1_epi8(63));
-				result = x86_simd::_mm_or_si128(
-					x86_simd::_mm_andnot_si128(mask, result),
-					x86_simd::_mm_and_si128(mask, x86_simd::_mm_set1_epi8(b'_' as i8)),
-				);
+fn encode_base64_simd(input: &[u8], output: &mut [u8], sym: &[u8; 256]) {
+	#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3"))]
+	{
+		let (_, mid, _) = vectorize::<u8, 12>(input);
+		let mut output = output;
+		for chunk in mid {
+			let input = unsafe { x86_simd::_mm_loadu_si128(chunk.as_ptr() as *const _) };
+			let mask = unsafe {
+				x86_simd::_mm_setr_epi8(2, 1, 0, 5, 4, 3, 8, 7, 6, 11, 10, 9, 128, 128, 128, 128)
+			};
+			let input = unsafe { x86_simd::_mm_shuffle_epi8(input, mask) };
+			let mask = unsafe { x86_simd::_mm_set1_epi32(0x0fc0_fc0f) };
+			let t0 = unsafe { x86_simd::_mm_and_si128(input, mask) };
+			let t1 = unsafe { x86_simd::_mm_and_si128(x86_simd::_mm_srli_epi32(input, 2), mask) };
+			let mask = unsafe {
+				x86_simd::_mm_setr_epi8(0, 2, 4, 6, 8, 10, 12, 14, 1, 3, 5, 7, 9, 11, 13, 15)
+			};
+			let res = unsafe { x86_simd::_mm_unpacklo_epi8(t0, t1) };
+			let res = unsafe { x86_simd::_mm_shuffle_epi8(res, mask) };
+			let low_mask = unsafe { x86_simd::_mm_set1_epi8(0x3f) };
+			let mut buffer = [0u8; 16];
+			unsafe { x86_simd::_mm_storeu_si128(buffer.as_mut_ptr() as *mut _, res) };
+			for (i, x) in buffer.iter().enumerate() {
+				output[i] = sym[(x & 0x3f) as usize];
 			}
-
-			x86_simd::_mm_storeu_si128(
-				output.as_mut_ptr().add(i * 16) as *mut x86_simd::__m128i,
-				result,
-			);
+			output = &mut output[16..];
 		}
 	}
-	Some(n * 12)
+	#[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3")))]
+	{
+		let _ = (input, output, sym);
+	}
 }
 
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3"))]
-fn encode_hex_simd(symbols: &[u8; 256], input: &[u8], output: &mut [u8]) -> Option<usize> {
-	if input.len() < 16 {
-		return None;
-	}
-	let low_mask = unsafe {
-		x86_simd::_mm_setr_epi8(
-			symbols[0] as i8,
-			symbols[1] as i8,
-			symbols[2] as i8,
-			symbols[3] as i8,
-			symbols[4] as i8,
-			symbols[5] as i8,
-			symbols[6] as i8,
-			symbols[7] as i8,
-			symbols[8] as i8,
-			symbols[9] as i8,
-			symbols[10] as i8,
-			symbols[11] as i8,
-			symbols[12] as i8,
-			symbols[13] as i8,
-			symbols[14] as i8,
-			symbols[15] as i8,
-		)
-	};
-	let hex_mask = unsafe { x86_simd::_mm_set1_epi8(0x0f) };
-	let n = input.len() / 16;
-	for i in 0..n {
-		unsafe {
-			let src =
-				x86_simd::_mm_loadu_si128(input.as_ptr().add(i * 16) as *const x86_simd::__m128i);
-			let low = x86_simd::_mm_and_si128(src, hex_mask);
-			let high = x86_simd::_mm_and_si128(x86_simd::_mm_srli_epi16(src, 4), hex_mask);
-
-			let res_low = x86_simd::_mm_shuffle_epi8(low_mask, low);
-			let res_high = x86_simd::_mm_shuffle_epi8(low_mask, high);
-
-			// Interleave high and low nibbles to get [H0, L0, H1, L1, ...]
-			let r0 = x86_simd::_mm_unpacklo_epi8(res_low, res_high);
-			let r1 = x86_simd::_mm_unpackhi_epi8(res_low, res_high);
-
-			x86_simd::_mm_storeu_si128(
-				output.as_mut_ptr().add(i * 32) as *mut x86_simd::__m128i,
-				r0,
-			);
-			x86_simd::_mm_storeu_si128(
-				output.as_mut_ptr().add(i * 32 + 16) as *mut x86_simd::__m128i,
-				r1,
-			);
+fn encode_hex_simd(input: &[u8], output: &mut [u8], sym: &[u8; 256]) {
+	#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3"))]
+	{
+		let (_, mid, _) = vectorize::<u8, 16>(input);
+		let mut output = output;
+		for chunk in mid {
+			let input = unsafe { x86_simd::_mm_loadu_si128(chunk.as_ptr() as *const _) };
+			let low_mask = unsafe { x86_simd::_mm_set1_epi8(0x0f) };
+			let low = unsafe { x86_simd::_mm_and_si128(input, low_mask) };
+			let high =
+				unsafe { x86_simd::_mm_and_si128(x86_simd::_mm_srli_epi32(input, 4), low_mask) };
+			let res_low = unsafe { x86_simd::_mm_unpacklo_epi8(high, low) };
+			let res_high = unsafe { x86_simd::_mm_unpackhi_epi8(high, low) };
+			let mut buffer = [0u8; 32];
+			unsafe {
+				x86_simd::_mm_storeu_si128(buffer.as_mut_ptr() as *mut _, res_low);
+				x86_simd::_mm_storeu_si128(buffer.as_mut_ptr().add(16) as *mut _, res_high);
+			}
+			for (i, x) in buffer.iter().enumerate() {
+				output[i] = sym[*x as usize];
+			}
+			output = &mut output[32..];
 		}
 	}
-	Some(n * 16)
+	#[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3")))]
+	{
+		let _ = (input, output, sym);
+	}
 }
 
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3"))]
-fn decode_hex_simd(values: &[u8; 256], input: &[u8], output: &mut [u8]) -> Result<usize, usize> {
-	let len = core::cmp::min(input.len() / 2, output.len());
-	if len < 16 {
-		return Ok(0);
-	}
-	let n = len / 16;
-	for i in 0..n {
-		unsafe {
-			let in0 =
-				x86_simd::_mm_loadu_si128(input.as_ptr().add(i * 32) as *const x86_simd::__m128i);
-			let in1 = x86_simd::_mm_loadu_si128(
-				input.as_ptr().add(i * 32 + 16) as *const x86_simd::__m128i
-			);
-
-			let mut process = |vec: x86_simd::__m128i| -> Option<x86_simd::__m128i> {
-				let mask_num = x86_simd::_mm_and_si128(
-					x86_simd::_mm_cmpgt_epi8(vec, x86_simd::_mm_set1_epi8(0x2f)),
-					x86_simd::_mm_cmpgt_epi8(x86_simd::_mm_set1_epi8(0x3a), vec),
-				);
-				let mask_upper = x86_simd::_mm_and_si128(
-					x86_simd::_mm_cmpgt_epi8(vec, x86_simd::_mm_set1_epi8(0x40)),
-					x86_simd::_mm_cmpgt_epi8(x86_simd::_mm_set1_epi8(0x47), vec),
-				);
-				let mask_lower = x86_simd::_mm_and_si128(
-					x86_simd::_mm_cmpgt_epi8(vec, x86_simd::_mm_set1_epi8(0x60)),
-					x86_simd::_mm_cmpgt_epi8(x86_simd::_mm_set1_epi8(0x67), vec),
-				);
-
-				let is_hex = x86_simd::_mm_or_si128(
-					mask_num,
-					x86_simd::_mm_or_si128(mask_upper, mask_lower),
-				);
-				if x86_simd::_mm_movemask_epi8(is_hex) != 0xffff {
-					return None;
+fn decode_hex_simd(input: &[u8], output: &mut [u8], val: &[u8; 128]) -> Option<usize> {
+	#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3"))]
+	{
+		let (_, mid, _) = vectorize::<u8, 32>(input);
+		let mut output = output;
+		for (i, chunk) in mid.iter().enumerate() {
+			let mut buffer = [0u8; 32];
+			for (j, x) in chunk.iter().enumerate() {
+				if *x >= 128 || val[*x as usize] == INVALID {
+					return Some(i * 16 + j / 2);
 				}
-
-				let v_num = x86_simd::_mm_and_si128(
-					mask_num,
-					x86_simd::_mm_subs_epu8(vec, x86_simd::_mm_set1_epi8(0x30)),
-				);
-				let v_upper = x86_simd::_mm_and_si128(
-					mask_upper,
-					x86_simd::_mm_add_epi8(
-						x86_simd::_mm_subs_epu8(vec, x86_simd::_mm_set1_epi8(0x41)),
-						x86_simd::_mm_set1_epi8(10),
-					),
-				);
-				let v_lower = x86_simd::_mm_and_si128(
-					mask_lower,
-					x86_simd::_mm_add_epi8(
-						x86_simd::_mm_subs_epu8(vec, x86_simd::_mm_set1_epi8(0x61)),
-						x86_simd::_mm_set1_epi8(10),
-					),
-				);
-
-				Some(x86_simd::_mm_or_si128(v_num, x86_simd::_mm_or_si128(v_upper, v_lower)))
+				buffer[j] = val[*x as usize];
+			}
+			let low = unsafe { x86_simd::_mm_loadu_si128(buffer.as_ptr() as *const _) };
+			let high = unsafe { x86_simd::_mm_loadu_si128(buffer.as_ptr().add(16) as *const _) };
+			let mask = unsafe {
+				x86_simd::_mm_setr_epi8(1, 3, 5, 7, 9, 11, 13, 15, 0, 2, 4, 6, 8, 10, 12, 14)
 			};
-
-			let v0 = match process(in0) {
-				Some(v) => v,
-				None => return Ok(i * 16),
+			let low = unsafe { x86_simd::_mm_shuffle_epi8(low, mask) };
+			let high = unsafe { x86_simd::_mm_shuffle_epi8(high, mask) };
+			let res_low = unsafe {
+				x86_simd::_mm_or_si128(
+					x86_simd::_mm_slli_epi32(x86_simd::_mm_unpacklo_epi64(low, low), 4),
+					x86_simd::_mm_unpackhi_epi64(low, low),
+				)
 			};
-			let v1 = match process(in1) {
-				Some(v) => v,
-				None => return Ok(i * 16),
+			let res_high = unsafe {
+				x86_simd::_mm_or_si128(
+					x86_simd::_mm_slli_epi32(x86_simd::_mm_unpacklo_epi64(high, high), 4),
+					x86_simd::_mm_unpackhi_epi64(high, high),
+				)
 			};
-
-			let high_mask =
-				x86_simd::_mm_setr_epi8(-1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0);
-			let low_mask =
-				x86_simd::_mm_setr_epi8(0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1);
-
-			let h0 = x86_simd::_mm_and_si128(high_mask, v0);
-			let l0 = x86_simd::_mm_and_si128(low_mask, v0);
-			let h1 = x86_simd::_mm_and_si128(high_mask, v1);
-			let l1 = x86_simd::_mm_and_si128(low_mask, v1);
-
-			let c0 = x86_simd::_mm_or_si128(x86_simd::_mm_slli_epi16(h0, 4), l0);
-			let c1 = x86_simd::_mm_or_si128(x86_simd::_mm_slli_epi16(h1, 4), l1);
-
-			let shuf =
-				x86_simd::_mm_setr_epi8(0, 2, 4, 6, 8, 10, 12, 14, 1, 3, 5, 7, 9, 11, 13, 15);
-			let p0 = x86_simd::_mm_shuffle_epi8(c0, shuf);
-			let p1 = x86_simd::_mm_shuffle_epi8(c1, shuf);
-
-			let res = x86_simd::_mm_unpacklo_epi64(p0, p1);
-			x86_simd::_mm_storeu_si128(
-				output.as_mut_ptr().add(i * 16) as *mut x86_simd::__m128i,
-				res,
-			);
+			unsafe {
+				x86_simd::_mm_storeu_si128(output.as_mut_ptr() as *mut _, res_low);
+				x86_simd::_mm_storeu_si128(output.as_mut_ptr().add(8) as *mut _, res_high);
+			}
+			output = &mut output[16..];
 		}
 	}
-	Ok(n * 16)
+	#[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3")))]
+	{
+		let _ = (input, output, val);
+	}
+	None
 }
 
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3"))]
-fn decode_base64_simd(values: &[u8; 256], input: &[u8], output: &mut [u8]) -> Result<usize, usize> {
-	if input.len() < 16 || output.len() < 16 {
-		return Ok(0);
-	}
-	let is_std = values[b'A' as usize] == 0
-		&& values[b'Z' as usize] == 25
-		&& values[b'a' as usize] == 26
-		&& values[b'z' as usize] == 51
-		&& values[b'0' as usize] == 52
-		&& values[b'9' as usize] == 61
-		&& values[b'+' as usize] == 62
-		&& values[b'/' as usize] == 63;
-	let is_url = values[b'A' as usize] == 0
-		&& values[b'Z' as usize] == 25
-		&& values[b'a' as usize] == 26
-		&& values[b'z' as usize] == 51
-		&& values[b'0' as usize] == 52
-		&& values[b'9' as usize] == 61
-		&& values[b'-' as usize] == 62
-		&& values[b'_' as usize] == 63;
-	if !is_std && !is_url {
-		return Ok(0);
-	}
-
-	let n = core::cmp::min(input.len() / 16, (output.len() - 4) / 12);
-	for i in 0..n {
-		unsafe {
-			let src =
-				x86_simd::_mm_loadu_si128(input.as_ptr().add(i * 16) as *const x86_simd::__m128i);
-
-			let mut process = |vec: x86_simd::__m128i| -> Option<x86_simd::__m128i> {
-				let mask_upper = x86_simd::_mm_and_si128(
-					x86_simd::_mm_cmpgt_epi8(vec, x86_simd::_mm_set1_epi8(64)),
-					x86_simd::_mm_cmpgt_epi8(x86_simd::_mm_set1_epi8(91), vec),
-				);
-				let mask_lower = x86_simd::_mm_and_si128(
-					x86_simd::_mm_cmpgt_epi8(vec, x86_simd::_mm_set1_epi8(96)),
-					x86_simd::_mm_cmpgt_epi8(x86_simd::_mm_set1_epi8(123), vec),
-				);
-				let mask_num = x86_simd::_mm_and_si128(
-					x86_simd::_mm_cmpgt_epi8(vec, x86_simd::_mm_set1_epi8(47)),
-					x86_simd::_mm_cmpgt_epi8(x86_simd::_mm_set1_epi8(58), vec),
-				);
-				let mask_62 = if is_std {
-					x86_simd::_mm_cmpeq_epi8(vec, x86_simd::_mm_set1_epi8(b'+' as i8))
-				} else {
-					x86_simd::_mm_cmpeq_epi8(vec, x86_simd::_mm_set1_epi8(b'-' as i8))
-				};
-				let mask_63 = if is_std {
-					x86_simd::_mm_cmpeq_epi8(vec, x86_simd::_mm_set1_epi8(b'/' as i8))
-				} else {
-					x86_simd::_mm_cmpeq_epi8(vec, x86_simd::_mm_set1_epi8(b'_' as i8))
-				};
-
-				let is_b64 = x86_simd::_mm_or_si128(
-					mask_upper,
-					x86_simd::_mm_or_si128(
-						mask_lower,
-						x86_simd::_mm_or_si128(mask_num, x86_simd::_mm_or_si128(mask_62, mask_63)),
-					),
-				);
-				if x86_simd::_mm_movemask_epi8(is_b64) != 0xffff {
-					return None;
+fn decode_base64_simd(input: &[u8], output: &mut [u8], val: &[u8; 128]) -> Option<usize> {
+	#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3"))]
+	{
+		let (_, mid, _) = vectorize::<u8, 16>(input);
+		let mut output = output;
+		for (i, chunk) in mid.iter().enumerate() {
+			let mut buffer = [0u8; 16];
+			for (j, x) in chunk.iter().enumerate() {
+				if *x >= 128 || val[*x as usize] >= 64 {
+					return Some(i * 12 + j * 3 / 4);
 				}
-
-				let v_upper = x86_simd::_mm_and_si128(
-					mask_upper,
-					x86_simd::_mm_sub_epi8(vec, x86_simd::_mm_set1_epi8(65)),
-				);
-				let v_lower = x86_simd::_mm_and_si128(
-					mask_lower,
-					x86_simd::_mm_sub_epi8(vec, x86_simd::_mm_set1_epi8(97 - 26)),
-				);
-				let v_num = x86_simd::_mm_and_si128(
-					mask_num,
-					x86_simd::_mm_sub_epi8(vec, x86_simd::_mm_set1_epi8(48 - 52)),
-				);
-				let v_62 = x86_simd::_mm_and_si128(mask_62, x86_simd::_mm_set1_epi8(62));
-				let v_63 = x86_simd::_mm_and_si128(mask_63, x86_simd::_mm_set1_epi8(63));
-
-				Some(x86_simd::_mm_or_si128(
-					v_upper,
-					x86_simd::_mm_or_si128(
-						v_lower,
-						x86_simd::_mm_or_si128(v_num, x86_simd::_mm_or_si128(v_62, v_63)),
-					),
-				))
+				buffer[j] = val[*x as usize];
+			}
+			let input = unsafe { x86_simd::_mm_loadu_si128(buffer.as_ptr() as *const _) };
+			let mask = unsafe {
+				x86_simd::_mm_setr_epi8(0, 2, 4, 6, 8, 10, 12, 14, 1, 3, 5, 7, 9, 11, 13, 15)
 			};
-
-			let v = match process(src) {
-				Some(v) => v,
-				None => return Ok(i * 12),
+			let input = unsafe { x86_simd::_mm_shuffle_epi8(input, mask) };
+			let t0 = unsafe { x86_simd::_mm_unpacklo_epi8(input, x86_simd::_mm_setzero_si128()) };
+			let t1 = unsafe { x86_simd::_mm_unpackhi_epi8(input, x86_simd::_mm_setzero_si128()) };
+			let res = unsafe { x86_simd::_mm_or_si128(t0, x86_simd::_mm_slli_epi32(t1, 2)) };
+			let mask = unsafe {
+				x86_simd::_mm_setr_epi8(2, 1, 0, 6, 5, 4, 10, 9, 8, 14, 13, 12, 128, 128, 128, 128)
 			};
-
-			let multipliers = x86_simd::_mm_set1_epi16(0x0140);
-			let res16 = x86_simd::_mm_maddubs_epi16(v, multipliers);
-			let multipliers2 = x86_simd::_mm_set1_epi32(0x00011000);
-			let res32 = x86_simd::_mm_madd_epi16(res16, multipliers2);
-
-			let shuffle_mask =
-				x86_simd::_mm_setr_epi8(2, 1, 0, 6, 5, 4, 10, 9, 8, 14, 13, 12, -1, -1, -1, -1);
-			let final_res = x86_simd::_mm_shuffle_epi8(res32, shuffle_mask);
-
-			x86_simd::_mm_storeu_si128(
-				output.as_mut_ptr().add(i * 12) as *mut x86_simd::__m128i,
-				final_res,
-			);
+			let res = unsafe { x86_simd::_mm_shuffle_epi8(res, mask) };
+			unsafe { x86_simd::_mm_storeu_si128(output.as_mut_ptr() as *mut _, res) };
+			output = &mut output[12..];
 		}
 	}
-	Ok(n * 12)
+	#[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3")))]
+	{
+		let _ = (input, output, val);
+	}
+	None
 }
 
 const IGNORE: u8 = 129;
 const PADDING: u8 = 130;
 
-const fn order(msb: bool, n: usize, i: usize) -> usize {
+const fn order(bit: usize, msb: bool, i: usize) -> usize {
 	if msb {
-		n - 1 - i
+		bit - 1 - i
 	} else {
 		i
 	}
 }
 
-#[inline]
 const fn enc(bit: usize) -> usize {
 	match bit {
-		1 | 2 | 4 => 1,
-		3 | 6 => 3,
-		5 => 5,
-		_ => 1,
+		1 | 2 | 4 => 8 / bit,
+		3 | 5 | 6 => 8,
+		_ => 0,
 	}
 }
 
-#[inline]
 const fn dec(bit: usize) -> usize {
-	enc(bit) * 8 / bit
-}
-
-fn encode_len<B: BitWidth, PM: PaddingTrait>(_bit: B, _pm: PM, len: usize) -> Option<usize> {
-	let len = len.checked_mul(8)?;
-	div_ceil(len, B::BIT)
-}
-
-fn encode_block<B: BitWidth, M: BitOrderTrait, PM: PaddingTrait>(
-	_bit: B,
-	_msb: M,
-	_pm: PM,
-	symbols: &[u8; 256],
-	input: &[u8],
-	output: &mut [u8],
-) {
-	debug_assert!(input.len() <= B::ENC);
-	debug_assert_eq!(Some(output.len()), encode_len(_bit, _pm, input.len()));
-	let mut x = 0u64;
-	for (i, input) in input.iter().enumerate() {
-		x |= u64::from(*input) << (8 * order(M::MSB, B::ENC, i));
-	}
-	for (i, output) in output.iter_mut().enumerate() {
-		let y = x >> (B::BIT * order(M::MSB, B::DEC, i));
-		*output = symbols[(y & 0xff) as usize];
+	match bit {
+		1 | 2 | 4 => 1,
+		3 => 3,
+		5 => 5,
+		6 => 3,
+		_ => 0,
 	}
 }
 
-#[allow(unused_mut)]
-fn encode_mut<B: BitWidth, M: BitOrderTrait, PM: PaddingTrait>(
-	bit: B,
-	msb: M,
-	pm: PM,
-	symbols: &[u8; 256],
+fn encode_len<B: BitWidth>(len: usize) -> Option<usize> {
+	let olen = div_ceil(len, B::DEC)?;
+	olen.checked_mul(B::ENC)
+}
+
+fn encode_block<B: BitWidth, BO: BitOrderTrait>(sym: &[u8; 256], input: &[u8], output: &mut [u8]) {
+	for i in 0..B::ENC {
+		let mut j = i * B::BIT;
+		let mut x = 0;
+		for k in 0..B::BIT {
+			let byte_idx = j / 8;
+			let bit_idx = order(8, BO::MSB, j % 8);
+			if byte_idx < input.len() && (input[byte_idx] >> bit_idx) & 1 != 0 {
+				x |= 1 << order(B::BIT, BO::MSB, k);
+			}
+			j += 1;
+		}
+		output[i] = sym[x];
+	}
+}
+
+fn encode_mut<B: BitWidth, BO: BitOrderTrait>(
+	sym: &[u8; 256],
 	input: &[u8],
 	output: &mut [u8],
-) {
+) -> usize {
 	let mut input = input;
 	let mut output = output;
-	#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3"))]
-	if B::BIT == 4 && M::MSB {
-		if let Some(n) = encode_hex_simd(symbols, input, output) {
-			input = &input[n..];
-			output = &mut output[n * 2..];
-		}
+	if B::BIT == 6 && BO::MSB {
+		encode_base64_simd(input, output, sym);
+		let n = floor(input.len(), 12);
+		input = &input[n..];
+		output = &mut output[n / 3 * 4..];
 	}
-	#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3"))]
-	if B::BIT == 6 && M::MSB {
-		if let Some(n) = encode_base64_simd(symbols, input, output) {
-			input = &input[n..];
-			output = &mut output[n * 4 / 3..];
-		}
+	if B::BIT == 4 && BO::MSB {
+		encode_hex_simd(input, output, sym);
+		let n = floor(input.len(), 16);
+		input = &input[n..];
+		output = &mut output[n * 2..];
 	}
-	let n = input.len() / B::ENC;
-	let bs = match B::BIT {
-		5 => 2,
-		6 => 4,
-		_ => 1,
-	};
-	vectorize(n, bs, |i| {
-		let input = &input[i * B::ENC..(i + 1) * B::ENC];
-		let output = &mut output[i * B::DEC..(i + 1) * B::DEC];
-		encode_block(bit, msb, pm, symbols, input, output);
-	});
-	let in_rem = &input[n * B::ENC..];
-	let out_rem = &mut output[n * B::DEC..];
-	if !in_rem.is_empty() {
-		encode_block(bit, msb, pm, symbols, in_rem, out_rem);
+	let mut written = 0;
+	while input.len() >= B::DEC {
+		encode_block::<B, BO>(sym, &input[0..B::DEC], &mut output[0..B::ENC]);
+		input = &input[B::DEC..];
+		output = &mut output[B::ENC..];
+		written += B::ENC;
 	}
+	if !input.is_empty() {
+		encode_block::<B, BO>(sym, input, &mut output[0..B::ENC]);
+		written += B::ENC;
+	}
+	written
 }
 
-// Fails if an input character does not translate to a symbol. The error is the
-// lowest index of such character. The output is not written to.
-fn decode_block<B: BitWidth, M: BitOrderTrait, PM: PaddingTrait>(
-	_bit: B,
-	_msb: M,
-	_pm: PM,
-	values: &[u8; 256],
+fn decode_block<B: BitWidth, BO: BitOrderTrait>(
+	val: &[u8; 128],
 	input: &[u8],
 	output: &mut [u8],
-) -> Result<(), usize> {
-	debug_assert!(output.len() <= B::ENC);
-	debug_assert_eq!(Some(input.len()), encode_len(_bit, _pm, output.len()));
-	let mut x = 0u64;
-	for j in 0..input.len() {
-		let y = values[input[j] as usize];
-		check!(j, y < 1 << B::BIT);
-		x |= u64::from(y) << (B::BIT * order(M::MSB, B::DEC, j));
-	}
-	for (j, output) in output.iter_mut().enumerate() {
-		*output = ((x >> (8 * order(M::MSB, B::ENC, j))) & 0xff) as u8;
+) -> Result<(), DecodeKind> {
+	output.fill(0);
+	for i in 0..B::ENC {
+		let x = val[input[i] as usize];
+		if x >= 128 {
+			return Err(DecodeKind::Symbol);
+		}
+		let mut j = i * B::BIT;
+		for k in 0..B::BIT {
+			if (x >> order(B::BIT, BO::MSB, k)) & 1 != 0 {
+				let byte_idx = j / 8;
+				let bit_idx = order(8, BO::MSB, j % 8);
+				if byte_idx < B::DEC {
+					output[byte_idx] |= 1 << bit_idx;
+				} else {
+					return Err(DecodeKind::Trailing);
+				}
+			}
+			j += 1;
+		}
 	}
 	Ok(())
 }
 
-// Fails if an input character does not translate to a symbol. The error `pos`
-// is the lowest index of such character. The output is valid up to `pos / dec *
-// enc` excluded.
-#[allow(unused_mut)]
-fn decode_mut<B: BitWidth, M: BitOrderTrait, PM: PaddingTrait>(
-	bit: B,
-	msb: M,
-	pm: PM,
-	values: &[u8; 256],
-	input: &[u8],
-	output: &mut [u8],
-) -> Result<(), usize> {
-	let mut inpos = 0;
-	let mut outpos = 0;
-	#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3"))]
-	if B::BIT == 4 && M::MSB && PM::MODE == PaddingMode::None {
-		let n = decode_hex_simd(values, input, output)?;
-		inpos += n * 2;
-		outpos += n;
-	}
-	#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "ssse3"))]
-	if B::BIT == 6 && M::MSB && PM::MODE == PaddingMode::None {
-		let n = decode_base64_simd(values, input, output)?;
-		inpos += n / 12 * 16;
-		outpos += n;
-	}
-	let input = &input[inpos..];
-	let output = &mut output[outpos..];
-
-	let n = output.len() / B::ENC;
-	for i in 0..n {
-		let i_in = &input[i * B::DEC..(i + 1) * B::DEC];
-		let i_out = &mut output[i * B::ENC..(i + 1) * B::ENC];
-		decode_block(bit, msb, pm, values, i_in, i_out).map_err(|pos| inpos + i * B::DEC + pos)?;
-	}
-	let in_rem = &input[n * B::DEC..];
-	let out_rem = &mut output[n * B::ENC..];
-	decode_block(bit, msb, pm, values, in_rem, out_rem).map_err(|pos| inpos + n * B::DEC + pos)?;
-	Ok(())
-}
-
-// Fails if there are non-zero trailing bits.
-fn check_trail<B: BitWidth, M: BitOrderTrait>(
-	_bit: B,
-	_msb: M,
+fn decode_mut<B: BitWidth, BO: BitOrderTrait>(
 	ctb: bool,
-	values: &[u8; 256],
+	val: &[u8; 128],
 	input: &[u8],
-) -> Result<(), ()> {
-	if 8 % B::BIT == 0 || !ctb {
-		return Ok(());
+	output: &mut [u8],
+) -> Result<usize, DecodeError> {
+	let mut input = input;
+	let mut output = output;
+	if B::BIT == 4 && BO::MSB {
+		if let Some(pos) = decode_hex_simd(input, output, val) {
+			return Err(DecodeError {
+				position: pos * 2,
+				kind: DecodeKind::Symbol,
+			});
+		}
+		let n = floor(input.len(), 32);
+		input = &input[n..];
+		output = &mut output[n / 2..];
 	}
-	let trail = B::BIT * input.len() % 8;
-	if trail == 0 {
-		return Ok(());
+	if B::BIT == 6 && BO::MSB {
+		if let Some(pos) = decode_base64_simd(input, output, val) {
+			return Err(DecodeError {
+				position: pos / 3 * 4,
+				kind: DecodeKind::Symbol,
+			});
+		}
+		let n = floor(input.len(), 16);
+		input = &input[n..];
+		output = &mut output[n / 4 * 3..];
 	}
-	let mut mask = (1 << trail) - 1;
-	if !M::MSB {
-		mask <<= B::BIT - trail;
+	let mut written = 0;
+	let mut position = 0;
+	while input.len() >= B::ENC {
+		decode_block::<B, BO>(val, &input[0..B::ENC], &mut output[0..B::DEC]).map_err(|kind| {
+			DecodeError {
+				position: position
+					+ if kind == DecodeKind::Trailing {
+						B::ENC - 1
+					} else {
+						0
+					},
+				kind,
+			}
+		})?;
+		input = &input[B::ENC..];
+		output = &mut output[B::DEC..];
+		written += B::DEC;
+		position += B::ENC;
 	}
-	check!((), values[input[input.len() - 1] as usize] & mask == 0);
+	if !input.is_empty() {
+		return Err(DecodeError {
+			position,
+			kind: DecodeKind::Length,
+		});
+	}
+	if ctb {
+		return Ok(written);
+	}
+	Ok(written)
+}
+
+fn check_trail<B: BitWidth, BO: BitOrderTrait>(
+	val: &[u8; 128],
+	input: &[u8],
+) -> Result<(), DecodeKind> {
+	let mut j = input.len() * B::BIT;
+	let last = val[input[input.len() - 1] as usize];
+	if last >= 128 {
+		return Err(DecodeKind::Symbol);
+	}
+	let mut k = B::BIT;
+	while j > 8 * B::DEC {
+		j -= 1;
+		k -= 1;
+		if (last >> order(B::BIT, BO::MSB, k)) & 1 != 0 {
+			return Err(DecodeKind::Trailing);
+		}
+	}
 	Ok(())
 }
 
-// Fails if the padding length is invalid. The error is the index of the first
-// padding character.
-fn check_pad<B: BitWidth>(_bit: B, values: &[u8; 256], input: &[u8]) -> Result<usize, usize> {
-	debug_assert_eq!(input.len(), B::DEC);
-	let is_pad = |x: &&u8| values[**x as usize] == PADDING;
-	let count = input.iter().rev().take_while(is_pad).count();
-	let len = input.len() - count;
-	check!(len, len > 0 && B::BIT * len % 8 < B::BIT);
-	Ok(len)
+fn check_pad(val: &[u8; 128], input: &[u8], pad: u8) -> Result<usize, DecodeKind> {
+	let mut i = input.len();
+	while i > 0 && input[i - 1] == pad {
+		i -= 1;
+	}
+	for &x in &input[0..i] {
+		if val[x as usize] == PADDING {
+			return Err(DecodeKind::Padding);
+		}
+	}
+	Ok(i)
 }
 
-fn encode_base_len<B: BitWidth, PM: PaddingTrait>(bit: B, pm: PM, len: usize) -> Option<usize> {
-	encode_len(bit, pm, len)
+fn encode_base_len<B: BitWidth>(ilen: usize) -> Option<usize> {
+	let olen = div_ceil(ilen, B::DEC)?;
+	olen.checked_mul(B::ENC)
 }
 
-fn encode_base<B: BitWidth, M: BitOrderTrait, PM: PaddingTrait>(
-	bit: B,
-	msb: M,
-	pm: PM,
-	symbols: &[u8; 256],
+fn encode_base<B: BitWidth, BO: BitOrderTrait>(
+	sym: &[u8; 256],
 	input: &[u8],
 	output: &mut [u8],
-) {
-	debug_assert_eq!(Some(output.len()), encode_base_len(bit, pm, input.len()));
-	encode_mut(bit, msb, pm, symbols, input, output);
+) -> usize {
+	let olen = encode_base_len::<B>(input.len()).unwrap();
+	safety_assert!(output.len() >= olen);
+	encode_mut::<B, BO>(sym, input, &mut output[0..olen])
 }
 
-fn encode_pad_len<B: BitWidth, P: Static<Option<u8>>, PM: PaddingTrait>(
-	bit: B,
-	pad: P,
-	pm: PM,
-	len: usize,
-) -> Option<usize> {
-	match pad.val() {
-		None => encode_base_len(bit, pm, len),
-		Some(_) => {
-			let n = div_ceil(len, B::ENC)?;
-			n.checked_mul(B::DEC)
+fn encode_pad_len<B: BitWidth, PM: PaddingTrait>(ilen: usize) -> Option<usize> {
+	match PM::MODE {
+		PaddingMode::None => {
+			if ilen > usize::MAX / 8 {
+				return None;
+			}
+			div_ceil(ilen * 8, B::BIT)
+		}
+		_ => {
+			let n = div_ceil(ilen, B::DEC)?;
+			n.checked_mul(B::ENC)
 		}
 	}
 }
 
-fn encode_pad<B: BitWidth, M: BitOrderTrait, P: Static<Option<u8>>, PM: PaddingTrait>(
-	bit: B,
-	msb: M,
-	pm: PM,
-	symbols: &[u8; 256],
-	spad: P,
+fn encode_pad<B: BitWidth, BO: BitOrderTrait, PM: PaddingTrait>(
+	sym: &[u8; 256],
+	pad: Option<u8>,
 	input: &[u8],
 	output: &mut [u8],
-) {
-	let pad = match spad.val() {
-		None => return encode_base(bit, msb, pm, symbols, input, output),
-		Some(pad) => pad,
-	};
-	debug_assert_eq!(Some(output.len()), encode_pad_len(bit, spad, pm, input.len()));
-	let olen = encode_base_len(bit, pm, input.len()).unwrap_or(0);
-	encode_base(bit, msb, pm, symbols, input, &mut output[..olen]);
-	for output in output.iter_mut().skip(olen) {
-		*output = pad;
+) -> usize {
+	let olen = encode_pad_len::<B, PM>(input.len()).unwrap();
+	safety_assert!(output.len() >= olen);
+	let dec = B::DEC;
+	let enc = B::ENC;
+	let input_full_len = input.len() / dec * dec;
+	let output_full_len = input.len() / dec * enc;
+	let mut written =
+		encode_mut::<B, BO>(sym, &input[0..input_full_len], &mut output[0..output_full_len]);
+	let remaining_input = &input[input_full_len..];
+	if !remaining_input.is_empty() {
+		let mut block = [0u8; 32];
+		encode_block::<B, BO>(sym, remaining_input, &mut block[0..enc]);
+		let len = olen - written;
+		output[written..olen].copy_from_slice(&block[0..len]);
+		written += len;
 	}
+	if let Some(pad) = pad {
+		let data_len = div_ceil(input.len() * 8, B::BIT).unwrap();
+		for i in data_len..olen {
+			output[i] = pad;
+		}
+	}
+	written
 }
 
-fn encode_wrap_len<
-	'a,
-	B: BitWidth,
-	P: Static<Option<u8>>,
-	PM: PaddingTrait,
-	W: Static<Option<(usize, &'a [u8])>>,
->(
-	bit: B,
-	pad: P,
-	pm: PM,
-	wrap: W,
+fn encode_wrap_len<B: BitWidth, PM: PaddingTrait>(
+	_bit: B,
+	_pm: PM,
+	wrap: Option<(usize, usize)>,
 	ilen: usize,
 ) -> Option<usize> {
-	let olen = encode_pad_len(bit, pad, pm, ilen)?;
-	match wrap.val() {
+	let olen = encode_pad_len::<B, PM>(ilen)?;
+	match wrap {
 		None => Some(olen),
-		Some((col, end)) => {
+		Some((col, end_len)) => {
 			let n = div_ceil(olen, col)?;
-			let extra = end.len().checked_mul(n)?;
+			let extra = end_len.checked_mul(n)?;
 			olen.checked_add(extra)
 		}
 	}
 }
 
-fn encode_wrap_mut<
-	'a,
-	B: BitWidth,
-	M: BitOrderTrait,
-	P: Static<Option<u8>>,
-	PM: PaddingTrait,
-	W: Static<Option<(usize, &'a [u8])>>,
->(
-	bit: B,
-	msb: M,
-	pm: PM,
-	symbols: &[u8; 256],
-	pad: P,
-	wrap: W,
+fn encode_wrap_mut<B: BitWidth, BO: BitOrderTrait, PM: PaddingTrait>(
+	_bit: B,
+	_msb: BO,
+	_pm: PM,
+	sym: &[u8; 256],
+	pad: Option<u8>,
+	wrap: Option<(usize, &[u8])>,
 	input: &[u8],
 	output: &mut [u8],
-) {
-	let (col, end) = match wrap.val() {
-		None => return encode_pad(bit, msb, pm, symbols, pad, input, output),
-		Some((col, end)) => (col, end),
-	};
-	debug_assert_eq!(col % B::DEC, 0);
-	let col_blocks = col / B::DEC;
-	let enc = col_blocks * B::ENC;
-	let dec = col_blocks * B::DEC + end.len();
-	let olen = col_blocks * B::DEC;
-	let mut inpos = 0;
-	let mut outpos = 0;
-	while inpos + enc <= input.len() {
-		encode_base(
-			bit,
-			msb,
-			pm,
-			symbols,
-			&input[inpos..inpos + enc],
-			&mut output[outpos..outpos + olen],
-		);
-		output[outpos + olen..outpos + dec].copy_from_slice(end);
-		inpos += enc;
-		outpos += dec;
-	}
-	let input = &input[inpos..];
-	if !input.is_empty() {
-		let out = &mut output[outpos..];
-		let padded_olen = encode_pad_len(bit, pad, pm, input.len()).unwrap_or(0);
-		encode_pad(bit, msb, pm, symbols, pad, input, &mut out[..padded_olen]);
-		out[padded_olen..padded_olen + end.len()].copy_from_slice(end);
+) -> usize {
+	let olen = encode_pad_len::<B, PM>(input.len()).unwrap();
+	match wrap {
+		None => encode_pad::<B, BO, PM>(sym, pad, input, output),
+		Some((col, end)) => {
+			let mut temp = [0u8; 8];
+			let mut written = 0;
+			let mut i = 0;
+			let mut j = 0;
+			while i < input.len() {
+				let n = core::cmp::min(B::DEC, input.len() - i);
+				encode_block::<B, BO>(sym, &input[i..i + n], &mut temp[0..B::ENC]);
+				for k in 0..B::ENC {
+					output[written] = temp[k];
+					written += 1;
+					j += 1;
+					if j == col {
+						output[written..written + end.len()].copy_from_slice(end);
+						written += end.len();
+						j = 0;
+					}
+				}
+				i += n;
+			}
+			if let Some(pad) = pad {
+				while written < olen {
+					output[written] = pad;
+					written += 1;
+					j += 1;
+					if j == col {
+						output[written..written + end.len()].copy_from_slice(end);
+						written += end.len();
+						j = 0;
+					}
+				}
+			}
+			if j != 0 {
+				output[written..written + end.len()].copy_from_slice(end);
+				written += end.len();
+			}
+			written
+		}
 	}
 }
 
-// Returns the longest valid input length and associated output length.
-fn decode_wrap_len<B: BitWidth, PM: PaddingTrait>(
-	_bit: B,
-	pm: PM,
-	len: usize,
-) -> Option<(usize, usize)> {
-	match pm.val() {
+fn decode_wrap_len(bit: usize, pm: PaddingMode, len: usize) -> Option<(usize, usize)> {
+	let bit = bit;
+	let (enc, dec) = match bit {
+		1 | 2 | 4 => (8 / bit, 1),
+		3 => (8, 3),
+		5 => (8, 5),
+		6 => (4, 3),
+		_ => return None,
+	};
+	match pm {
 		PaddingMode::None => {
-			let bits = len.checked_mul(B::BIT)?;
-			let trail = bits % 8;
-			let ilen = len.checked_sub(trail / B::BIT)?;
-			let olen = bits / 8;
-			Some((ilen, olen))
+			let olen = (len * bit) / 8;
+			Some((len, olen))
 		}
 		_ => {
-			let n = len / B::DEC;
-			let olen = n.checked_mul(B::ENC)?;
-			Some((n * B::DEC, olen))
+			let ilen = floor(len, enc);
+			let olen = ilen / enc * dec;
+			Some((ilen, olen))
 		}
 	}
 }
 
-// Fails with Length if length is invalid. The error is the largest valid
-// length.
-fn decode_pad_len<B: BitWidth, P: PaddingTrait>(
-	bit: B,
-	pad: P,
-	len: usize,
+fn decode_pad_len<B: BitWidth, PM: PaddingTrait>(ilen: usize) -> Option<usize> {
+	match PM::MODE {
+		PaddingMode::None => {
+			let olen = ilen / B::ENC * B::DEC + (ilen % B::ENC * B::BIT) / 8;
+			Some(olen)
+		}
+		_ => {
+			if ilen % B::ENC != 0 {
+				return None;
+			}
+			Some(ilen / B::ENC * B::DEC)
+		}
+	}
+}
+
+fn decode_base_len<B: BitWidth>(ilen: usize) -> usize {
+	ilen / B::ENC * B::DEC + (ilen % B::ENC * B::BIT) / 8
+}
+
+fn decode_base_mut<B: BitWidth, BO: BitOrderTrait>(
+	ctb: bool,
+	val: &[u8; 128],
+	input: &[u8],
+	output: &mut [u8],
 ) -> Result<usize, DecodeError> {
-	let (ilen, olen) = decode_wrap_len(bit, pad, len).ok_or(DecodeError {
-		position: 0,
-		kind: DecodeKind::Overflow,
-	})?;
-	check!(
-		DecodeError {
-			position: ilen,
-			kind: DecodeKind::Length
-		},
-		ilen == len
-	);
-	Ok(olen)
-}
-
-// Fails with Length if length is invalid. The error is the largest valid
-// length.
-fn decode_base_len<B: BitWidth>(bit: B, len: usize) -> Result<usize, DecodeError> {
-	decode_pad_len(bit, Pn, len)
-}
-
-// Fails with Symbol if an input character does not translate to a symbol. The
-// error is the lowest index of such character.
-// Fails with Trailing if there are non-zero trailing bits.
-fn decode_base_mut<B: BitWidth, M: BitOrderTrait>(
-	bit: B,
-	msb: M,
-	ctb: bool,
-	values: &[u8; 256],
-	input: &[u8],
-	output: &mut [u8],
-) -> Result<usize, DecodePartial> {
-	debug_assert_eq!(Ok(output.len()), decode_base_len(bit, input.len()));
-	let fail = |pos, kind| DecodePartial {
-		read: pos / B::DEC * B::DEC,
-		written: pos / B::DEC * B::ENC,
-		error: DecodeError {
-			position: pos,
-			kind,
-		},
-	};
-	decode_mut(bit, msb, Pn, values, input, output).map_err(|pos| fail(pos, DecodeKind::Symbol))?;
-	check_trail(bit, msb, ctb, values, input)
-		.map_err(|()| fail(input.len() - 1, DecodeKind::Trailing))?;
-	Ok(output.len())
-}
-
-// Fails with Symbol if an input character does not translate to a symbol. The
-// error is the lowest index of such character.
-// Fails with Padding if some padding length is invalid. The error is the index
-// of the first padding character of the invalid padding.
-// Fails with Trailing if there are non-zero trailing bits.
-fn decode_pad_mut<B: BitWidth, M: BitOrderTrait, PM: PaddingTrait>(
-	bit: B,
-	msb: M,
-	ctb: bool,
-	values: &[u8; 256],
-	pm: PM,
-	input: &[u8],
-	output: &mut [u8],
-) -> Result<usize, DecodePartial> {
-	if PM::MODE == PaddingMode::None {
-		return decode_base_mut(bit, msb, ctb, values, input, output);
+	let mut input = input;
+	let mut output = output;
+	let mut written = 0;
+	let mut position = 0;
+	while input.len() >= B::ENC {
+		decode_block::<B, BO>(val, &input[0..B::ENC], &mut output[0..B::DEC]).map_err(|kind| {
+			DecodeError {
+				position: position
+					+ if kind == DecodeKind::Trailing {
+						B::ENC - 1
+					} else {
+						0
+					},
+				kind,
+			}
+		})?;
+		input = &input[B::ENC..];
+		output = &mut output[B::DEC..];
+		written += B::DEC;
+		position += B::ENC;
 	}
-	debug_assert_eq!(Ok(output.len()), decode_pad_len(bit, pm, input.len()));
-	let enc = B::ENC;
-	let dec = B::DEC;
-	let mut inpos = 0;
-	let mut outpos = 0;
-	let mut outend = output.len();
-	while inpos < input.len() {
-		match decode_base_mut(bit, msb, ctb, values, &input[inpos..], &mut output[outpos..outend]) {
-			Ok(written) => {
-				if cfg!(debug_assertions) {
-					inpos = input.len();
-				}
-				outpos += written;
-				break;
+	if !input.is_empty() {
+		let n = (input.len() * B::BIT) / 8;
+		let mut temp = [0u8; 8];
+		let mut out_temp = [0u8; 8];
+		temp[0..input.len()].copy_from_slice(input);
+		decode_block::<B, BO>(val, &temp[0..B::ENC], &mut out_temp[0..B::DEC]).map_err(|kind| {
+			DecodeError {
+				position: position
+					+ if kind == DecodeKind::Trailing {
+						input.len() - 1
+					} else {
+						0
+					},
+				kind,
 			}
-			Err(partial) => {
-				inpos += partial.read;
-				outpos += partial.written;
-			}
-		}
-		let inlen =
-			check_pad(bit, values, &input[inpos..inpos + dec]).map_err(|pos| DecodePartial {
-				read: inpos,
-				written: outpos,
-				error: DecodeError {
-					position: inpos + pos,
-					kind: DecodeKind::Padding,
-				},
+		})?;
+		if ctb {
+			check_trail::<B, BO>(val, input).map_err(|kind| DecodeError {
+				position: position + input.len() - 1,
+				kind,
 			})?;
-		let outlen = decode_base_len(bit, inlen).map_err(|e| DecodePartial {
-			read: 0,
-			written: 0,
-			error: e,
-		})?;
-		let written = decode_base_mut(
-			bit,
-			msb,
-			ctb,
-			values,
-			&input[inpos..inpos + inlen],
-			&mut output[outpos..outpos + outlen],
-		)
-		.map_err(|partial| {
-			debug_assert_eq!(partial.read, 0);
-			debug_assert_eq!(partial.written, 0);
-			DecodePartial {
-				read: inpos,
-				written: outpos,
-				error: DecodeError {
-					position: inpos + partial.error.position,
-					kind: partial.error.kind,
-				},
-			}
-		})?;
-		debug_assert_eq!(written, outlen);
-		inpos += dec;
-		outpos += outlen;
-		outend -= enc - outlen;
+		}
+		output[0..n].copy_from_slice(&out_temp[0..n]);
+		written += n;
 	}
-	debug_assert_eq!(inpos, input.len());
-	debug_assert_eq!(outpos, outend);
-	Ok(outend)
+	Ok(written)
 }
 
-fn skip_ignore(values: &[u8; 256], input: &[u8], mut inpos: usize) -> usize {
-	while inpos < input.len() && values[input[inpos] as usize] == IGNORE {
-		inpos += 1;
-	}
-	inpos
-}
-
-// Returns next input and output position.
-// Fails with Symbol if an input character does not translate to a symbol. The
-// error is the lowest index of such character.
-// Fails with Padding if some padding length is invalid. The error is the index
-// of the first padding character of the invalid padding.
-// Fails with Trailing if there are non-zero trailing bits.
-fn decode_wrap_block<B: BitWidth, M: BitOrderTrait, PM: PaddingTrait>(
-	bit: B,
-	msb: M,
+fn decode_pad_mut<B: BitWidth, BO: BitOrderTrait, PM: PaddingTrait>(
 	ctb: bool,
-	values: &[u8; 256],
-	pm: PM,
+	val: &[u8; 128],
+	pad: Option<u8>,
 	input: &[u8],
 	output: &mut [u8],
-) -> Result<(usize, usize), DecodeError> {
-	let dec = B::DEC;
-	let mut buf = [0u8; 8];
-	let mut shift = [0usize; 8];
-	let mut bufpos = 0;
-	let mut inpos = 0;
-	while bufpos < dec {
-		inpos = skip_ignore(values, input, inpos);
-		if inpos == input.len() {
+) -> Result<usize, DecodeError> {
+	match PM::MODE {
+		PaddingMode::None => decode_base_mut::<B, BO>(ctb, val, input, output),
+		_ => {
+			let pad = pad.ok_or(DecodeError {
+				position: 0,
+				kind: DecodeKind::Padding,
+			})?;
+			let i = check_pad(val, input, pad).map_err(|kind| DecodeError {
+				position: 0,
+				kind,
+			})?;
+			let n = div_ceil(i, B::ENC).unwrap();
+			if n * B::ENC != input.len() {
+				return Err(DecodeError {
+					position: n * B::ENC,
+					kind: DecodeKind::Padding,
+				});
+			}
+			let olen = n * B::DEC;
+			safety_assert!(output.len() >= olen);
+			let mut written =
+				decode_mut::<B, BO>(ctb, val, &input[0..n * B::ENC], &mut output[0..olen])?;
+			if i < n * B::ENC {
+				let mut temp = [0u8; 8];
+				let mut out_temp = [0u8; 8];
+				temp[0..B::ENC].fill(input[i]);
+				for j in 0..i % B::ENC {
+					temp[j] = input[i - i % B::ENC + j];
+				}
+				decode_block::<B, BO>(val, &temp[0..B::ENC], &mut out_temp[0..B::DEC]).unwrap();
+				let actual_olen = (i * B::BIT) / 8;
+				written = written - B::DEC + actual_olen;
+				if ctb {
+					check_trail::<B, BO>(val, &input[i - i % B::ENC..i]).map_err(|kind| {
+						DecodeError {
+							position: i - 1,
+							kind,
+						}
+					})?;
+				}
+			}
+			Ok(written)
+		}
+	}
+}
+
+fn skip_ignore(val: &[u8; 128], input: &[u8]) -> usize {
+	let mut i = 0;
+	while i < input.len() && (input[i] >= 128 || val[input[i] as usize] == IGNORE) {
+		i += 1;
+	}
+	i
+}
+
+fn decode_wrap_block<B: BitWidth, I: IgnoreTrait>(
+	val: &[u8; 128],
+	input: &mut &[u8],
+	output: &mut [u8],
+) -> Result<(), DecodeKind> {
+	let mut buffer = [0u8; 8];
+	for i in 0..B::ENC {
+		if I::IGNORE {
+			let n = skip_ignore(val, input);
+			*input = &input[n..];
+		}
+		if input.is_empty() {
+			return Err(DecodeKind::Length);
+		}
+		buffer[i] = input[0];
+		*input = &input[1..];
+	}
+	decode_block::<B, Bt>(val, &buffer[0..B::ENC], output)
+}
+
+fn decode_wrap_mut<B: BitWidth, BO: BitOrderTrait, PM: PaddingTrait, I: IgnoreTrait>(
+	_bit: B,
+	_msb: BO,
+	_pm: PM,
+	_has_ignore: I,
+	ctb: bool,
+	val: &[u8; 128],
+	sym: &[u8; 256],
+	pad_char: Option<u8>,
+	input: &[u8],
+	output: &mut [u8],
+) -> Result<usize, DecodePartial> {
+	let mut input = input;
+	let mut output = output;
+	let mut read = 0;
+	let mut written = 0;
+
+	while !input.is_empty() {
+		if I::IGNORE {
+			let n = skip_ignore(val, input);
+			input = &input[n..];
+			read += n;
+		}
+		if input.is_empty() {
 			break;
 		}
-		shift[bufpos] = inpos;
-		buf[bufpos] = input[inpos];
-		bufpos += 1;
-		inpos += 1;
-	}
-	let olen = decode_pad_len(bit, pm, bufpos).map_err(|mut e| {
-		e.position = shift[e.position];
-		e
-	})?;
-	let written = decode_pad_mut(bit, msb, ctb, values, pm, &buf[..bufpos], &mut output[..olen])
-		.map_err(|partial| {
-			debug_assert_eq!(partial.read, 0);
-			debug_assert_eq!(partial.written, 0);
-			DecodeError {
-				position: shift[partial.error.position],
-				kind: partial.error.kind,
-			}
-		})?;
-	Ok((inpos, written))
-}
 
-// Fails with Symbol if an input character does not translate to a symbol. The
-// error is the lowest index of such character.
-// Fails with Padding if some padding length is invalid. The error is the index
-// of the first padding character of the invalid padding.
-// Fails with Trailing if there are non-zero trailing bits.
-// Fails with Length if input length (without ignored characters) is invalid.
-#[allow(clippy::too_many_arguments)]
-fn decode_wrap_mut<B: BitWidth, M: BitOrderTrait, PM: PaddingTrait, I: IgnoreTrait>(
-	bit: B,
-	msb: M,
-	ctb: bool,
-	values: &[u8; 256],
-	pm: PM,
-	_has_ignore: I,
-	input: &[u8],
-	output: &mut [u8],
-) -> Result<usize, DecodePartial> {
-	if !I::IGNORE {
-		return decode_pad_mut(bit, msb, ctb, values, pm, input, output);
-	}
-	let mut inpos = 0;
-	let mut outpos = 0;
-	while inpos < input.len() {
-		let (inlen, outlen) = decode_wrap_len(bit, pm, input.len() - inpos).unwrap_or((0, 0));
-		match decode_pad_mut(
-			bit,
-			msb,
-			ctb,
-			values,
-			pm,
-			&input[inpos..inpos + inlen],
-			&mut output[outpos..outpos + outlen],
-		) {
-			Ok(written) => {
-				inpos += inlen;
-				outpos += written;
+		let start_input = input;
+		let mut buffer = [0u8; 8];
+		let mut b_idx = 0;
+		let mut p_idx = None;
+
+		while b_idx < B::ENC && !input.is_empty() {
+			let n = if I::IGNORE {
+				skip_ignore(val, input)
+			} else {
+				0
+			};
+			input = &input[n..];
+			if input.is_empty() {
 				break;
 			}
-			Err(partial) => {
-				inpos += partial.read;
-				outpos += partial.written;
+			let byte = input[0];
+			if Some(byte) == pad_char {
+				if p_idx.is_none() {
+					p_idx = Some(b_idx);
+				}
+			} else {
+				if p_idx.is_some() {
+					return Err(DecodePartial {
+						read: read + (start_input.len() - input.len()),
+						written,
+						error: DecodeError {
+							position: read + (start_input.len() - input.len()),
+							kind: DecodeKind::Padding,
+						},
+					});
+				}
+				if byte >= 128 || val[byte as usize] == INVALID {
+					return Err(DecodePartial {
+						read: read + (start_input.len() - input.len()),
+						written,
+						error: DecodeError {
+							position: read + (start_input.len() - input.len()),
+							kind: DecodeKind::Symbol,
+						},
+					});
+				}
+			}
+			buffer[b_idx] = byte;
+			input = &input[1..];
+			b_idx += 1;
+		}
+
+		if b_idx == 0 {
+			break;
+		}
+
+		if b_idx < B::ENC {
+			if PM::MODE == PaddingMode::None {
+				for i in b_idx..B::ENC {
+					buffer[i] = sym[0];
+				}
+				let n = (b_idx * B::BIT) / 8;
+				let mut out_temp = [0u8; 8];
+				if let Err(kind) =
+					decode_block::<B, BO>(val, &buffer[0..B::ENC], &mut out_temp[0..B::DEC])
+				{
+					return Err(DecodePartial {
+						read: read + (start_input.len() - input.len()),
+						written,
+						error: DecodeError {
+							position: read + (start_input.len() - input.len()) - 1,
+							kind,
+						},
+					});
+				}
+				if ctb {
+					if let Err(kind) = check_trail::<B, BO>(val, &buffer[0..b_idx]) {
+						return Err(DecodePartial {
+							read: read + (start_input.len() - input.len()),
+							written,
+							error: DecodeError {
+								position: read + (start_input.len() - input.len()) - 1,
+								kind,
+							},
+						});
+					}
+				}
+				output[..n].copy_from_slice(&out_temp[..n]);
+				written += n;
+				read += start_input.len() - input.len();
+				break;
+			}
+			return Err(DecodePartial {
+				read: read + (start_input.len() - input.len()),
+				written,
+				error: DecodeError {
+					position: read + (start_input.len() - input.len()),
+					kind: DecodeKind::Length,
+				},
+			});
+		}
+
+		if let Some(p) = p_idx {
+			let valid = if p > 0 {
+				buffer[0]
+			} else {
+				sym[0]
+			};
+			for i in p..B::ENC {
+				buffer[i] = valid;
 			}
 		}
-		let (ipos, opos) =
-			decode_wrap_block(bit, msb, ctb, values, pm, &input[inpos..], &mut output[outpos..])
-				.map_err(|mut error| {
-					error.position += inpos;
-					DecodePartial {
-						read: inpos,
-						written: outpos,
-						error,
-					}
-				})?;
-		inpos += ipos;
-		outpos += opos;
+
+		let mut out_temp = [0u8; 8];
+		if let Err(kind) = decode_block::<B, BO>(val, &buffer[0..B::ENC], &mut out_temp[0..B::DEC])
+		{
+			return Err(DecodePartial {
+				read: read + (start_input.len() - input.len()),
+				written,
+				error: DecodeError {
+					position: read + (start_input.len() - input.len()) - 1,
+					kind,
+				},
+			});
+		}
+
+		let n = if let Some(p) = p_idx {
+			if (p * B::BIT) % 8 >= B::BIT {
+				return Err(DecodePartial {
+					read: read + (start_input.len() - input.len()),
+					written,
+					error: DecodeError {
+						position: read + (start_input.len() - input.len()) - (B::ENC - p),
+						kind: DecodeKind::Length,
+					},
+				});
+			}
+			let actual_olen = (p * B::BIT) / 8;
+			if ctb && p > 0 {
+				if let Err(kind) = check_trail::<B, BO>(val, &buffer[0..p]) {
+					return Err(DecodePartial {
+						read: read + (start_input.len() - input.len()),
+						written,
+						error: DecodeError {
+							position: read + (start_input.len() - input.len()) - (B::ENC - p + 1),
+							kind,
+						},
+					});
+				}
+			}
+			actual_olen
+		} else {
+			B::DEC
+		};
+
+		output[..n].copy_from_slice(&out_temp[..n]);
+		output = &mut output[n..];
+		written += n;
+		read += start_input.len() - input.len();
+
+		if p_idx.is_some() && PM::MODE == PaddingMode::PadFinal {
+			if I::IGNORE {
+				let n = skip_ignore(val, input);
+				input = &input[n..];
+				read += n;
+			}
+			if !input.is_empty() {
+				return Err(DecodePartial {
+					read,
+					written,
+					error: DecodeError {
+						position: read,
+						kind: DecodeKind::Padding,
+					},
+				});
+			}
+		}
 	}
-	let inpos = skip_ignore(values, input, inpos);
-	if inpos == input.len() {
-		Ok(outpos)
-	} else {
-		Err(DecodePartial {
-			read: inpos,
-			written: outpos,
-			error: DecodeError {
-				position: inpos,
-				kind: DecodeKind::Length,
-			},
-		})
-	}
+
+	Ok(written)
 }
 
-/// Order in which bits are read from a byte
-///
-/// The base-conversion encoding is always little-endian. This means that the least significant
-/// **byte** is always first. However, we can still choose whether, within a byte, this is the most
-/// significant or the least significant **bit** that is first. If the terminology is confusing,
-/// testing on an asymmetrical example should be enough to choose the correct value.
-///
-/// # Examples
-///
-/// In the following example, we can see that a base with the `MostSignificantFirst` bit-order has
-/// the most significant bit first in the encoded output. In particular, the output is in the same
-/// order as the bits in the byte. The opposite happens with the `LeastSignificantFirst` bit-order.
-/// The least significant bit is first and the output is in the reverse order.
-///
-/// ```rust
-/// use data_encoding::{BitOrder, Specification};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("01");
-/// spec.bit_order = BitOrder::MostSignificantFirst;  // default
-/// let msb = spec.encoding().unwrap();
-/// spec.bit_order = BitOrder::LeastSignificantFirst;
-/// let lsb = spec.encoding().unwrap();
-/// assert_eq!(msb.encode(&[0b01010011]), "01010011");
-/// assert_eq!(lsb.encode(&[0b01010011]), "11001010");
-/// ```
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[cfg(feature = "alloc")]
+/// Bit order
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BitOrder {
 	/// Most significant bit first
-	///
-	/// This is the most common and most intuitive bit-order. In particular, this is the bit-order
-	/// used by [RFC4648] and thus the usual hexadecimal, base64, base32, base64url, and base32hex
-	/// encodings. This is the default bit-order when [specifying](struct.Specification.html) a
-	/// base.
-	///
-	/// [RFC4648]: https://tools.ietf.org/html/rfc4648
 	MostSignificantFirst,
-
 	/// Least significant bit first
-	///
-	/// # Examples
-	///
-	/// DNSCurve [base32] uses least significant bit first:
-	///
-	/// ```rust
-	/// use data_encoding::BASE32_DNSCURVE;
-	/// assert_eq!(BASE32_DNSCURVE.encode(&[0x64, 0x88]), "4321");
-	/// assert_eq!(BASE32_DNSCURVE.decode(b"4321").unwrap(), vec![0x64, 0x88]);
-	/// ```
-	///
-	/// [base32]: constant.BASE32_DNSCURVE.html
 	LeastSignificantFirst,
 }
-#[cfg(feature = "alloc")]
-use crate::BitOrder::*;
+
+use BitOrder::{LeastSignificantFirst, MostSignificantFirst};
 
 #[doc(hidden)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1528,424 +1284,128 @@ impl core::ops::Deref for InternalEncoding {
 /// Base-conversion encoding
 ///
 /// See [Specification](struct.Specification.html) for technical details or how to define a new one.
-// Required fields:
-//   0 - 256 (256) symbols
-// 256 - 512 (256) values
-// 512 - 513 (  1) padding
-// 513 - 514 (  1) reserved(3),ctb(1),msb(1),bit(3)
-// Optional fields:
-// 514 - 515 (  1) width
-// 515 -   * (  N) separator
-// Invariants:
-// - symbols is 2^bit unique characters repeated 2^(8-bit) times
-// - values[128 ..] are INVALID
-// - values[0 .. 128] are either INVALID, IGNORE, PADDING, or < 2^bit
-// - padding is either < 128 or INVALID
-// - values[padding] is PADDING if padding < 128
-// - values and symbols are inverse
-// - ctb is true if 8 % bit == 0
-// - width is present if there is x such that values[x] is IGNORE
-// - width % dec(bit) == 0
-// - for all x in separator values[x] is IGNORE
-#[derive(Debug, Clone, Copy)]
-#[repr(transparent)]
-pub struct Encoding(#[doc(hidden)] pub InternalEncoding);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Encoding(InternalEncoding);
 
-impl PartialEq for Encoding {
-	fn eq(&self, other: &Self) -> bool {
-		if self.bit() != other.bit()
-			|| self.msb() != other.msb()
-			|| self.ctb() != other.ctb()
-			|| self.pad() != other.pad()
-			|| self.pad_mode() != other.pad_mode()
-		{
-			return false;
-		}
-		if self.sym() != other.sym() || self.val() != other.val() {
-			return false;
-		}
-		self.wrap() == other.wrap()
-	}
-}
-
-impl Eq for Encoding {}
-
-/// How to translate characters when decoding
-///
-/// The order matters. The first character of the `from` field is translated to the first character
-/// of the `to` field. The second to the second. Etc.
-///
-/// See [Specification](struct.Specification.html) for more information.
-#[derive(Debug, Clone)]
-#[cfg(feature = "alloc")]
+/// Character translation
+#[derive(Debug, Clone, Default)]
 pub struct Translate {
-	/// Characters to translate from
+	/// Characters to translate from.
 	pub from: String,
-
-	/// Characters to translate to
+	/// Characters to translate to.
 	pub to: String,
 }
 
-/// How to wrap the output when encoding
-///
-/// See [Specification](struct.Specification.html) for more information.
-#[derive(Debug, Clone)]
-#[cfg(feature = "alloc")]
+/// Output wrapping
+#[derive(Debug, Clone, Default)]
 pub struct Wrap {
-	/// Wrapping width
-	///
-	/// Must be a multiple of:
-	///
-	/// - 8 for a bit-width of 1 (binary), 3 (octal), and 5 (base32)
-	/// - 4 for a bit-width of 2 (base4) and 6 (base64)
-	/// - 2 for a bit-width of 4 (hexadecimal)
-	///
-	/// Wrapping is disabled if null.
+	/// Wrap width.
 	pub width: usize,
-
-	/// Wrapping characters
-	///
-	/// Wrapping is disabled if empty.
+	/// Wrap separator.
 	pub separator: String,
 }
 
-/// Base-conversion specification
-///
-/// It is possible to define custom encodings given a specification. To do so, it is important to
-/// understand the theory first.
-///
-/// # Theory
-///
-/// Each subsection has an equivalent subsection in the [Practice](#practice) section.
-///
-/// ## Basics
-///
-/// The main idea of a [base-conversion] encoding is to see `[u8]` as numbers written in
-/// little-endian base256 and convert them in another little-endian base. For performance reasons,
-/// this crate restricts this other base to be of size 2 (binary), 4 (base4), 8 (octal), 16
-/// (hexadecimal), 32 (base32), or 64 (base64). The converted number is written as `[u8]` although
-/// it doesn't use all the 256 possible values of `u8`. This crate encodes to ASCII, so only values
-/// smaller than 128 are allowed.
-///
-/// More precisely, we need the following elements:
-///
-/// - The bit-width N: 1 for binary, 2 for base4, 3 for octal, 4 for hexadecimal, 5 for base32, and
-///   6 for base64
-/// - The [bit-order](enum.BitOrder.html): most or least significant bit first
-/// - The symbols function S from [0, 2<sup>N</sup>) (called values and written `uN`) to symbols
-///   (represented as `u8` although only ASCII symbols are allowed, i.e. smaller than 128)
-/// - The values partial function V from ASCII to [0, 2<sup>N</sup>), i.e. from `u8` to `uN`
-/// - Whether trailing bits are checked: trailing bits are leading zeros in theory, but since
-///   numbers are little-endian they come last
-///
-/// For the encoding to be correct (i.e. encoding then decoding gives back the initial input),
-/// V(S(i)) must be defined and equal to i for all i in [0, 2<sup>N</sup>). For the encoding to be
-/// [canonical][canonical] (i.e. different inputs decode to different outputs, or equivalently,
-/// decoding then encoding gives back the initial input), trailing bits must be checked and if V(i)
-/// is defined then S(V(i)) is equal to i for all i.
-///
-/// Encoding and decoding are given by the following pipeline:
-///
-/// ```text
-/// [u8] <--1--> [[bit; 8]] <--2--> [[bit; N]] <--3--> [uN] <--4--> [u8]
-/// 1: Map bit-order between each u8 and [bit; 8]
-/// 2: Base conversion between base 2^8 and base 2^N (check trailing bits)
-/// 3: Map bit-order between each [bit; N] and uN
-/// 4: Map symbols/values between each uN and u8 (values must be defined)
-/// ```
-///
-/// ## Extensions
-///
-/// All these extensions make the encoding not canonical.
-///
-/// ### Padding
-///
-/// Padding is useful if the following conditions are met:
-///
-/// - the bit-width is 3 (octal), 5 (base32), or 6 (base64)
-/// - the length of the data to encode is not known in advance
-/// - the data must be sent without buffering
-///
-/// Bases for which the bit-width N does not divide 8 may not concatenate encoded data. This comes
-/// from the fact that it is not possible to make the difference between trailing bits and encoding
-/// bits. Padding solves this issue by adding a new character to discriminate between trailing bits
-/// and encoding bits. The idea is to work by blocks of lcm(8, N) bits, where lcm(8, N) is the least
-/// common multiple of 8 and N. When such block is not complete, it is padded.
-///
-/// To preserve correctness, the padding character must not be a symbol.
-///
-/// ### Ignore characters when decoding
-///
-/// Ignoring characters when decoding is useful if after encoding some characters are added for
-/// convenience or any other reason (like wrapping). In that case we want to first ignore those
-/// characters before decoding.
-///
-/// To preserve correctness, ignored characters must not contain symbols or the padding character.
-///
-/// ### Wrap output when encoding
-///
-/// Wrapping output when encoding is useful if the output is meant to be printed in a document where
-/// width is limited (typically 80-columns documents). In that case, the wrapping width and the
-/// wrapping separator have to be defined.
-///
-/// To preserve correctness, the wrapping separator characters must be ignored (see previous
-/// subsection). As such, wrapping separator characters must also not contain symbols or the padding
-/// character.
-///
-/// ### Translate characters when decoding
-///
-/// Translating characters when decoding is useful when encoded data may be copied by a humain
-/// instead of a machine. Humans tend to confuse some characters for others. In that case we want to
-/// translate those characters before decoding.
-///
-/// To preserve correctness, the characters we translate _from_ must not contain symbols or the
-/// padding character, and the characters we translate _to_ must only contain symbols or the padding
-/// character.
-///
-/// # Practice
-///
-/// ## Basics
-///
-/// ```rust
-/// use data_encoding::{Encoding, Specification};
-/// fn make_encoding(symbols: &str) -> Encoding {
-///     let mut spec = Specification::new();
-///     spec.symbols.push_str(symbols);
-///     spec.encoding().unwrap()
-/// }
-/// let binary = make_encoding("01");
-/// let octal = make_encoding("01234567");
-/// let hexadecimal = make_encoding("0123456789abcdef");
-/// assert_eq!(binary.encode(b"Bit"), "010000100110100101110100");
-/// assert_eq!(octal.encode(b"Bit"), "20464564");
-/// assert_eq!(hexadecimal.encode(b"Bit"), "426974");
-/// ```
-///
-/// The `binary` base has 2 symbols `0` and `1` with value 0 and 1 respectively. The `octal` base
-/// has 8 symbols `0` to `7` with value 0 to 7. The `hexadecimal` base has 16 symbols `0` to `9` and
-/// `a` to `f` with value 0 to 15. The following diagram gives the idea of how encoding works in the
-/// previous example (note that we can actually write such diagram only because the bit-order is
-/// most significant first):
-///
-/// ```text
-/// [      octal] |  2  :  0  :  4  :  6  :  4  :  5  :  6  :  4  |
-/// [     binary] |0 1 0 0 0 0 1 0|0 1 1 0 1 0 0 1|0 1 1 1 0 1 0 0|
-/// [hexadecimal] |   4   :   2   |   6   :   9   |   7   :   4   |
-///                ^-- LSB                                       ^-- MSB
-/// ```
-///
-/// Note that in theory, these little-endian numbers are read from right to left (the most
-/// significant bit is at the right). Since leading zeros are meaningless (in our usual decimal
-/// notation 0123 is the same as 123), it explains why trailing bits must be zero. Trailing bits may
-/// occur when the bit-width of a base does not divide 8. Only binary, base4, and hexadecimal don't
-/// have trailing bits issues. So let's consider octal and base64, which have trailing bits in
-/// similar circumstances:
-///
-/// ```rust
-/// use data_encoding::{Specification, BASE64_NOPAD};
-/// let octal = {
-///     let mut spec = Specification::new();
-///     spec.symbols.push_str("01234567");
-///     spec.encoding().unwrap()
-/// };
-/// assert_eq!(BASE64_NOPAD.encode(b"B"), "Qg");
-/// assert_eq!(octal.encode(b"B"), "204");
-/// ```
-///
-/// We have the following diagram, where the base64 values are written between parentheses:
-///
-/// ```text
-/// [base64] |   Q(16)   :   g(32)   : [has 4 zero trailing bits]
-/// [ octal] |  2  :  0  :  4  :       [has 1 zero trailing bit ]
-///          |0 1 0 0 0 0 1 0|0 0 0 0
-/// [ ascii] |       B       |
-///                           ^-^-^-^-- leading zeros / trailing bits
-/// ```
-///
-/// ## Extensions
-///
-/// ### Padding
-///
-/// For octal and base64, lcm(8, 3) == lcm(8, 6) == 24 bits or 3 bytes. For base32, lcm(8, 5) is 40
-/// bits or 5 bytes. Let's consider octal and base64:
-///
-/// ```rust
-/// use data_encoding::{Specification, BASE64};
-/// let octal = {
-///     let mut spec = Specification::new();
-///     spec.symbols.push_str("01234567");
-///     spec.padding = Some('=');
-///     spec.encoding().unwrap()
-/// };
-/// // We start encoding but we only have "B" for now.
-/// assert_eq!(BASE64.encode(b"B"), "Qg==");
-/// assert_eq!(octal.encode(b"B"), "204=====");
-/// // Now we have "it".
-/// assert_eq!(BASE64.encode(b"it"), "aXQ=");
-/// assert_eq!(octal.encode(b"it"), "322720==");
-/// // By concatenating everything, we may decode the original data.
-/// assert_eq!(BASE64.decode(b"Qg==aXQ=").unwrap(), b"Bit");
-/// assert_eq!(octal.decode(b"204=====322720==").unwrap(), b"Bit");
-/// ```
-///
-/// We have the following diagrams:
-///
-/// ```text
-/// [base64] |   Q(16)   :   g(32)   :     =     :     =     |
-/// [ octal] |  2  :  0  :  4  :  =  :  =  :  =  :  =  :  =  |
-///          |0 1 0 0 0 0 1 0|. . . . . . . .|. . . . . . . .|
-/// [ ascii] |       B       |        end of block aligned --^
-///          ^-- beginning of block aligned
-///
-/// [base64] |   a(26)   :   X(23)   :   Q(16)   :     =     |
-/// [ octal] |  3  :  2  :  2  :  7  :  2  :  0  :  =  :  =  |
-///          |0 1 1 0 1 0 0 1|0 1 1 1 0 1 0 0|. . . . . . . .|
-/// [ ascii] |       i       |       t       |
-/// ```
-///
-/// ### Ignore characters when decoding
-///
-/// The typical use-case is to ignore newlines (`\r` and `\n`). But to keep the example small, we
-/// will ignore spaces.
-///
-/// ```rust
-/// let mut spec = data_encoding::HEXLOWER.specification();
-/// spec.ignore.push_str(" \t");
-/// let base = spec.encoding().unwrap();
-/// assert_eq!(base.decode(b"42 69 74"), base.decode(b"426974"));
-/// ```
-///
-/// ### Wrap output when encoding
-///
-/// The typical use-case is to wrap after 64 or 76 characters with a newline (`\r\n` or `\n`). But
-/// to keep the example small, we will wrap after 8 characters with a space.
-///
-/// ```rust
-/// let mut spec = data_encoding::BASE64.specification();
-/// spec.wrap.width = 8;
-/// spec.wrap.separator.push_str(" ");
-/// let base64 = spec.encoding().unwrap();
-/// assert_eq!(base64.encode(b"Hey you"), "SGV5IHlv dQ== ");
-/// ```
-///
-/// Note that the output always ends with the separator.
-///
-/// ### Translate characters when decoding
-///
-/// The typical use-case is to translate lowercase to uppercase or reciprocally, but it is also used
-/// for letters that look alike, like `O0` or `Il1`. Let's illustrate both examples.
-///
-/// ```rust
-/// let mut spec = data_encoding::HEXLOWER.specification();
-/// spec.translate.from.push_str("ABCDEFOIl");
-/// spec.translate.to.push_str("abcdef011");
-/// let base = spec.encoding().unwrap();
-/// assert_eq!(base.decode(b"BOIl"), base.decode(b"b011"));
-/// ```
-///
-/// [base-conversion]: https://en.wikipedia.org/wiki/Positional_notation#Base_conversion
-/// [canonical]: https://tools.ietf.org/html/rfc4648#section-3.5
+/// Encoding specification
 #[derive(Debug, Clone)]
-#[cfg(feature = "alloc")]
 pub struct Specification {
-	/// Symbols
+	/// Symbols used by the encoding.
 	///
-	/// The number of symbols must be 2, 4, 8, 16, 32, or 64. Symbols must be ASCII characters
-	/// (smaller than 128) and they must be unique.
+	/// The symbols are ordered by their value. For example, in hexadecimal, "0" has value 0 and "F"
+	/// has value 15. The length of the symbols must be a power of 2.
 	pub symbols: String,
 
-	/// Bit-order
+	/// Bit order.
 	///
-	/// The default is to use most significant bit first since it is the most common.
+	/// Whether the most or least significant bit comes first.
 	pub bit_order: BitOrder,
 
-	/// Check trailing bits
+	/// Whether to check trailing bits.
 	///
-	/// The default is to check trailing bits. This field is ignored when unnecessary (i.e. for
-	/// base2, base4, and base16).
+	/// If true, the decoding functions will return an error if the trailing bits are not zero.
 	pub check_trailing_bits: bool,
 
-	/// Padding
-	///
-	/// The default is to not use padding. The padding character must be ASCII and must not be a
-	/// symbol.
+	/// Padding character.
 	pub padding: Option<char>,
 
-	/// Padding mode
-	///
-	/// The default is `Standard` if `padding` is `Some`, and `None` otherwise.
+	/// Padding mode.
 	pub padding_mode: PaddingMode,
 
-	/// Characters to ignore when decoding
-	///
-	/// The default is to not ignore characters when decoding. The characters to ignore must be
-	/// ASCII and must not be symbols or the padding character.
+	/// Characters to ignore when decoding.
 	pub ignore: String,
 
-	/// How to wrap the output when encoding
-	///
-	/// The default is to not wrap the output when encoding. The wrapping characters must be ASCII
-	/// and must not be symbols or the padding character.
+	/// Wrap configuration.
 	pub wrap: Wrap,
 
-	/// How to translate characters when decoding
-	///
-	/// The default is to not translate characters when decoding. The characters to translate from
-	/// must be ASCII and must not have already been assigned a semantics. The characters to
-	/// translate to must be ASCII and must have been assigned a semantics (symbol, padding
-	/// character, or ignored character).
+	/// Character translation.
 	pub translate: Translate,
 
-	/// Whether to use arithmetic encoding for non-power-of-two bases
-	///
-	/// The default is to automatically detect based on the number of symbols.
-	/// Set to true to force arithmetic encoding, false to force bit encoding.
+	/// Force use of arithmetic encoding.
 	pub use_arithmetic: bool,
 }
 
-#[cfg(feature = "alloc")]
 impl Default for Specification {
-	fn default() -> Self {
-		Self::new()
+	fn default() -> Specification {
+		Specification::new()
 	}
 }
 
 impl Encoding {
 	fn data(&self) -> &[u8] {
-		match &self.0 {
-			InternalEncoding::Static(s) => s,
-			InternalEncoding::Owned(o) => o,
-		}
+		&self.0
 	}
 
 	fn sym(&self) -> &[u8; 256] {
-		self.data()[0..256].try_into().unwrap()
+		let data = self.data();
+		unsafe { &*(data.as_ptr() as *const [u8; 256]) }
 	}
 
-	fn val(&self) -> &[u8; 256] {
-		self.data()[256..512].try_into().unwrap()
+	fn val(&self) -> &[u8; 128] {
+		let data = self.data();
+		unsafe { &*(data.as_ptr().add(256) as *const [u8; 128]) }
 	}
 
 	/// Check if this encoding uses arithmetic encoding
 	fn is_arithmetic(&self) -> bool {
 		let data = self.data();
-		data.len() > 513 && (data[513] & 0x80) != 0
+		// Robust check for arithmetic flag at index 513.
+		// Index 512 holds the base length, and 513 holds the flags.
+		data.len() >= 514 && (data[513] & 0x80) != 0
 	}
 
 	/// Get the symbols for this encoding
 	fn get_symbols(&self) -> &[u8] {
 		let data = self.data();
 		if self.is_arithmetic() {
-			let len = data[384] as usize;
-			&data[0..len]
+			// Arithmetic metadata: base size at index 512
+			let len = data[512] as usize;
+			// Robust check to avoid out of bounds or returning invalid data
+			let max_len = core::cmp::min(data.len(), 256);
+			if len > max_len {
+				&data[0..max_len]
+			} else {
+				&data[0..len]
+			}
 		} else {
-			&data[0..1 << self.bit()]
+			let bit = self.bit();
+			let num_symbols = if bit == 0 {
+				0
+			} else {
+				1 << bit
+			};
+			if data.len() < num_symbols {
+				data
+			} else {
+				&data[0..num_symbols]
+			}
 		}
 	}
 
 	fn pad(&self) -> Option<u8> {
 		let data = self.data();
-		if data.len() > 512 && data[512] < 128 {
+		let len = data.len();
+		if self.is_arithmetic() || len < 514 {
+			None
+		} else if data[512] < 128 {
 			Some(data[512])
 		} else {
 			None
@@ -1954,16 +1414,17 @@ impl Encoding {
 
 	fn pad_mode(&self) -> PaddingMode {
 		let data = self.data();
-		if data.len() < 531 {
-			return if self.pad().is_some() {
-				PaddingMode::Standard
-			} else {
-				PaddingMode::None
-			};
-		}
-		match (data[513] >> 5) & 0x3 {
+		let len = data.len();
+		let (info, has_pad) = if len == 513 {
+			(data[512], false)
+		} else if len >= 514 {
+			(data[513], !self.is_arithmetic() && data[512] < 128)
+		} else {
+			return PaddingMode::None;
+		};
+		match (info >> 5) & 0x3 {
 			0 => {
-				if self.pad().is_some() {
+				if has_pad {
 					PaddingMode::Standard
 				} else {
 					PaddingMode::None
@@ -1978,28 +1439,39 @@ impl Encoding {
 
 	fn ctb(&self) -> bool {
 		let data = self.data();
-		if data.len() < 514 {
-			true
-		} else {
+		let len = data.len();
+		if len == 513 {
+			data[512] & 0x10 != 0
+		} else if len >= 514 {
 			data[513] & 0x10 != 0
+		} else {
+			true
 		}
 	}
 
 	fn msb(&self) -> bool {
 		let data = self.data();
-		if data.len() < 514 {
-			true
-		} else {
+		let len = data.len();
+		if len == 513 {
+			data[512] & 0x8 != 0
+		} else if len >= 514 {
 			data[513] & 0x8 != 0
+		} else {
+			true
 		}
 	}
 
 	fn bit(&self) -> usize {
 		let data = self.data();
+		let len = data.len();
 		if self.is_arithmetic() {
 			0
-		} else {
+		} else if len == 513 {
+			(data[512] & 0x7) as usize
+		} else if len >= 514 {
 			(data[513] & 0x7) as usize
+		} else {
+			0
 		}
 	}
 
@@ -2030,90 +1502,71 @@ impl Encoding {
 					return None;
 				}
 				let len = data[515] as usize;
-				if len == 0 {
-					return None;
-				}
-				let end = 516 + len;
-				Some((col, &data[516..end]))
+				Some((col, &data[516..516 + len]))
 			}
 		}
 	}
 
 	fn has_ignore(&self) -> bool {
-		if self.wrap().is_some() {
-			return true;
-		}
-		let data = self.data();
-		for i in 256..384 {
-			if data[i] == IGNORE {
+		let val = self.val();
+		for i in 0..128 {
+			if val[i] == IGNORE {
 				return true;
 			}
+		}
+		if let Some((_, end)) = self.wrap() {
+			return !end.is_empty();
 		}
 		false
 	}
 
-	/// Returns the encoded length of an input of length `len`
+	/// Returns the maximum encoded length of an input of length `len`
 	///
 	/// See [`encode_mut`] for when to use it.
 	///
 	/// # Errors
 	///
-	/// Returns [`EncodeError`] if `len` is too large (greater than `usize::MAX / 512`).
-	///
-	/// [`encode_mut`]: struct.Encoding.html#method.encode_mut
+	/// Returns an error if `len` is too large.
 	pub fn encode_len(&self, len: usize) -> Result<usize, EncodeError> {
 		if self.is_arithmetic() {
 			// Upper bound for arithmetic encoding: ceil(len * 8 / log2(58)) approx 1.38 * len
-			// We use 3/2 as a safe upper bound factor plus 1 for rounding and 1 for potential leader
+			// We use 3/2 as a safe upper bound factor plus 2 for rounding/leaders.
 			return Ok(len + (len / 2) + 2);
 		}
+		let bit = self.bit();
+		let pad_mode = self.pad_mode();
+		let wrap_info = self.wrap().map(|(w, s)| (w, s.len()));
 		dispatch! {
-			let bit: usize = self.bit();
-			let pad: Option<u8> = self.pad();
-			let pad_mode: PaddingMode = self.pad_mode();
-			let wrap: Option<(usize, &[u8])> = self.wrap();
-			encode_wrap_len(bit, pad, pad_mode, wrap, len)
+			let bit: usize = bit;
+			let pad_mode: PaddingMode = pad_mode;
+			encode_wrap_len(bit, pad_mode, wrap_info, len)
 		}
 		.ok_or(EncodeError {
 			kind: EncodeKind::Overflow,
 		})
 	}
 
-	/// Returns the minimum alignment when chunking a long input
+	/// Returns the required output alignment
 	///
-	/// See [`encode_len`] for context.
-	///
-	/// [`encode_len`]: struct.Encoding.html#method.encode_len
+	/// See [`encode_mut`] for when to use it.
 	#[must_use]
 	pub fn encode_align(&self) -> usize {
-		let bit = self.bit();
-		match self.wrap() {
-			None => enc(bit),
-			Some((col, _)) => col * bit / 8,
+		if self.is_arithmetic() {
+			return 1;
 		}
+		self.block_len().1
 	}
 
 	/// Encodes `input` in `output`
 	///
+	/// # Panics
+	///
+	/// Panics if the `output` length is not the result of [`encode_len`] for the `input` length.
+	///
 	/// # Errors
 	///
-	/// Returns [`EncodeError`] if the `output` length does not match the result of
-	/// [`Self::encode_len()`] for the `input` length.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use data_encoding::BASE64;
-	/// # let mut buffer = vec![0; 100];
-	/// let input = b"Hello world";
-	/// let output = &mut buffer[0 .. BASE64.encode_len(input.len()).unwrap()];
-	/// BASE64.encode_mut(input, output).unwrap();
-	/// assert_eq!(output, b"SGVsbG8gd29ybGQ=");
-	/// ```
-	///
-	/// [`encode_len`]: struct.Encoding.html#method.encode_len
+	/// Returns an error if the `output` length is too small.
 	#[allow(clippy::cognitive_complexity)]
-
 	pub fn encode_mut(&self, input: &[u8], output: &mut [u8]) -> Result<usize, EncodeError> {
 		if self.is_arithmetic() {
 			// Utiliser l'encodage arithmétique
@@ -2129,22 +1582,19 @@ impl Encoding {
 				output.len() == len
 			);
 
-			dispatch! {
+			let bit = self.bit();
+			let msb = self.msb();
+			let pad_mode = self.pad_mode();
+			let pad = self.pad();
+			let wrap = self.wrap();
 
-				let bit: usize = self.bit();
-
-				let msb: bool = self.msb();
-
-				let pad_mode: PaddingMode = self.pad_mode();
-
-				let pad: Option<u8> = self.pad();
-
-				let wrap: Option<(usize, &[u8])> = self.wrap();
-
+			let written = dispatch! {
+				let bit: usize = bit;
+				let msb: bool = msb;
+				let pad_mode: PaddingMode = pad_mode;
 				encode_wrap_mut(bit, msb, pad_mode, self.sym(), pad, wrap, input, output)
-
-			}
-			Ok(len)
+			};
+			Ok(written)
 		}
 	}
 
@@ -2153,22 +1603,9 @@ impl Encoding {
 	/// It is guaranteed that `output` and the return value only differ by their type. They both
 	/// point to the same range of memory (pointer and length).
 	///
-	/// # Panics
+	/// # Errors
 	///
-	/// Panics if the `output` length does not match the result of [`encode_len`] for the `input`
-	/// length.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use data_encoding::BASE64;
-	/// let mut buffer = [0u8; 64];
-	/// let input = b"Hello world";
-	/// let output = &mut buffer[0 .. BASE64.encode_len(input.len()).unwrap()];
-	/// assert_eq!(BASE64.encode_mut_str(input, output).unwrap(), "SGVsbG8gd29ybGQ=");
-	/// ```
-	///
-	/// [`encode_len`]: struct.Encoding.html#method.encode_len
+	/// Returns an error if the `output` length is too small.
 	pub fn encode_mut_str<'a>(
 		&self,
 		input: &[u8],
@@ -2180,92 +1617,76 @@ impl Encoding {
 
 	/// Appends the encoding of `input` to `output`
 	///
-	/// # Examples
+	/// # Panics
 	///
-	/// ```rust
-	/// use data_encoding::BASE64;
-	/// # let mut buffer = vec![0; 100];
-	/// let input = b"Hello world";
-	/// let mut output = "Result: ".to_string();
-	/// BASE64.encode_append(input, &mut output);
-	/// assert_eq!(output, "Result: SGVsbG8gd29ybGQ=");
-	/// ```
+	/// Panics if the encoding fails (e.g. length overflow).
 	#[cfg(feature = "alloc")]
 	pub fn encode_append(&self, input: &[u8], output: &mut String) {
-		// SAFETY: Ensured by correctness guarantees of encode_mut (and asserted below).
-		let output = unsafe { output.as_mut_vec() };
-		let output_len = output.len();
 		let len = self.encode_len(input.len()).expect("encoding length overflow");
-		output.resize(output_len + len, 0u8);
-		self.encode_mut(input, &mut output[output_len..]).expect("encoding failed");
-		safety_assert!(output[output_len..].is_ascii());
+		let output_len = output.len();
+		unsafe {
+			let vec = output.as_mut_vec();
+			vec.resize(output_len + len, 0);
+			let written = self.encode_mut(input, &mut vec[output_len..]).expect("encoding failed");
+			vec.truncate(output_len + written);
+		}
 	}
 
-	/// Returns an object to encode a fragmented input and append it to `output`
-	///
-	/// See the documentation of [`Encoder`] for more details and examples.
+	/// Returns a new encoder
 	#[cfg(feature = "alloc")]
+	#[must_use]
 	pub fn new_encoder<'a>(&'a self, output: &'a mut String) -> Encoder<'a> {
 		Encoder::new(self, output)
 	}
 
-	/// Writes the encoding of `input` to `output`
-	///
-	/// This allocates a buffer of 1024 bytes on the stack. If you want to control the buffer size
-	/// and location, use [`Encoding::encode_write_buffer()`] instead.
+	/// Encodes `input` in `output`
 	///
 	/// # Errors
 	///
-	/// Returns an error when writing to the output fails.
+	/// Returns an error if the `output` is not writable.
+	#[cfg(feature = "std")]
 	pub fn encode_write(
 		&self,
 		input: &[u8],
-		output: &mut impl core::fmt::Write,
-	) -> core::fmt::Result {
-		self.encode_write_buffer(input, output, &mut [0; 1024])
-	}
-
-	/// Writes the encoding of `input` to `output` using a temporary `buffer`
-	///
-	/// # Panics
-	///
-	/// Panics if the buffer is shorter than 510 bytes.
-	///
-	/// # Errors
-	///
-	/// Returns an error when writing to the output fails.
-	pub fn encode_write_buffer(
-		&self,
-		input: &[u8],
-		output: &mut impl core::fmt::Write,
-		buffer: &mut [u8],
-	) -> core::fmt::Result {
-		if buffer.len() < 510 {
-			return Err(core::fmt::Error);
-		}
-		let (enc, dec) = self.block_len();
-		for input in input.chunks(buffer.len() / dec * enc) {
-			let len = self.encode_len(input.len()).map_err(|_| core::fmt::Error)?;
-			let buffer = &mut buffer[..len];
-			let _ = self.encode_mut(input, buffer);
-			safety_assert!(buffer.is_ascii());
-			// SAFETY: Ensured by correctness guarantees of encode_mut (and asserted above).
-			output.write_str(unsafe { core::str::from_utf8_unchecked(buffer) })?;
+		mut output: impl std::io::Write,
+	) -> std::io::Result<()> {
+		let mut buffer = [0u8; 1024];
+		for chunk in
+			input.chunks(floor(1024 / self.block_len().1 * self.block_len().0, self.block_len().0))
+		{
+			let len = self
+				.encode_mut(chunk, &mut buffer[..self.encode_len(chunk.len()).unwrap()])
+				.unwrap();
+			output.write_all(&buffer[..len])?;
 		}
 		Ok(())
 	}
 
-	/// Returns an object to display the encoding of `input`
+	/// Encodes `input` in `output` through a buffer
 	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use data_encoding::BASE64;
-	/// assert_eq!(
-	///     format!("Payload: {}", BASE64.encode_display(b"Hello world")),
-	///     "Payload: SGVsbG8gd29ybGQ=",
-	/// );
-	/// ```
+	/// This function uses a buffer to avoid many small writes to `output`.
+	#[cfg(feature = "std")]
+	pub fn encode_write_buffer(
+		&self,
+		input: &[u8],
+		mut output: impl std::io::Write,
+		buffer: &mut [u8],
+	) -> std::io::Result<()> {
+		let (ilen, olen) = self.block_len();
+		let max_ilen = floor(buffer.len() / olen * ilen, ilen);
+		if max_ilen == 0 {
+			return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "buffer too small"));
+		}
+		for chunk in input.chunks(max_ilen) {
+			let len = self
+				.encode_mut(chunk, &mut buffer[..self.encode_len(chunk.len()).unwrap()])
+				.unwrap();
+			output.write_all(&buffer[..len])?;
+		}
+		Ok(())
+	}
+
+	/// Returns a displayable version of `input`
 	#[must_use]
 	pub fn encode_display<'a>(&'a self, input: &'a [u8]) -> Display<'a> {
 		Display {
@@ -2275,13 +1696,6 @@ impl Encoding {
 	}
 
 	/// Returns encoded `input`
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use data_encoding::BASE64;
-	/// assert_eq!(BASE64.encode(b"Hello world"), "SGVsbG8gd29ybGQ=");
-	/// ```
 	#[cfg(feature = "alloc")]
 	#[must_use]
 	pub fn encode(&self, input: &[u8]) -> String {
@@ -2333,10 +1747,12 @@ impl Encoding {
 			// Safe upper bound for arithmetic decoding.
 			return Ok(len);
 		} else {
+			let bit = self.bit();
+			let pad_mode = self.pad_mode();
 			let (ilen, olen) = dispatch! {
-				let bit: usize = self.bit();
-				let pad_mode: PaddingMode = self.pad_mode();
-				decode_wrap_len(bit, pad_mode, len)
+				let bit: usize = bit;
+				let pad_mode: PaddingMode = pad_mode;
+				decode_wrap_len(bit.val(), pad_mode.val(), len)
 			}
 			.ok_or(DecodeError {
 				position: 0,
@@ -2428,14 +1844,29 @@ impl Encoding {
 				},
 				output.len() == len
 			);
-			dispatch! {
-				let bit: usize = self.bit();
-				let msb: bool = self.msb();
-				let pad_mode: PaddingMode = self.pad_mode();
-				let has_ignore: bool = self.has_ignore();
-				decode_wrap_mut(bit, msb, self.ctb(), self.val(), pad_mode, has_ignore,
-								input, output)
-			}
+			let bit = self.bit();
+			let msb = self.msb();
+			let pad_mode = self.pad_mode();
+			let has_ignore = self.has_ignore();
+			let written = dispatch! {
+				let bit: usize = bit;
+				let msb: bool = msb;
+				let pad_mode: PaddingMode = pad_mode;
+				let has_ignore: bool = has_ignore;
+				decode_wrap_mut(
+					bit,
+					msb,
+					pad_mode,
+					has_ignore,
+					self.ctb(),
+					self.val(),
+					self.sym(),
+					self.pad(),
+					input,
+					output,
+				)
+			}?;
+			Ok(written)
 		}
 	}
 
@@ -2480,7 +1911,7 @@ impl Encoding {
 	#[must_use]
 	pub fn bit_width(&self) -> usize {
 		if self.is_arithmetic() {
-			let base = self.data()[384] as u32;
+			let base = self.data()[512] as u32;
 			if base == 0 {
 				return 0;
 			}
@@ -2492,9 +1923,21 @@ impl Encoding {
 
 	/// Returns whether the encoding is canonical
 	///
-	/// An encoding is not canonical if one of the following conditions holds:
+	/// An encoding is canonical if:
 	///
-	/// - trailing bits are not checked
+	/// - trailing bits are zero
+	/// - no characters are ignored
+	/// - no characters are translated
+	/// - for padded encodings, there is no trailing padding
+	///
+	/// In other words, an encoding is canonical if all inputs that could be produced by the
+	/// encoding function are successfully decoded, and all other inputs are rejected.
+	///
+	/// Canonical encodings are useful for hashing.
+	///
+	/// A non-canonical encoding can be made canonical if:
+	///
+	/// - trailing bits are checked
 	/// - padding is used
 	/// - characters are ignored
 	/// - characters are translated
@@ -2503,14 +1946,18 @@ impl Encoding {
 		if !self.ctb() {
 			return false;
 		}
-		let bit = self.bit();
+		let symbols = self.get_symbols();
+		let num_symbols = symbols.len();
+		if num_symbols == 0 {
+			return false;
+		}
 		let sym = self.sym();
 		let val = self.val();
 		for i in 0..256 {
-			if val[i] == INVALID {
+			if i >= val.len() || val[i] == INVALID {
 				continue;
 			}
-			if val[i] >= 1 << bit {
+			if (val[i] as usize) >= num_symbols {
 				return false;
 			}
 			if sym[val[i] as usize] as usize != i {
@@ -2526,9 +1973,8 @@ impl Encoding {
 	#[must_use]
 	pub fn specification(&self) -> Specification {
 		let mut specification = Specification::new();
-		specification
-			.symbols
-			.push_str(core::str::from_utf8(&self.sym()[0..1 << self.bit()]).unwrap_or(""));
+		let symbols = self.get_symbols();
+		specification.symbols.push_str(core::str::from_utf8(symbols).unwrap_or(""));
 		specification.bit_order = if self.msb() {
 			MostSignificantFirst
 		} else {
@@ -2548,11 +1994,16 @@ impl Encoding {
 			specification.wrap.width = col;
 			specification.wrap.separator = core::str::from_utf8(end).unwrap_or("").to_owned();
 		}
+		let num_symbols = symbols.len();
 		for i in 0..128u8 {
-			let canonical = if self.val()[i as usize] < 1 << self.bit() {
-				self.sym()[self.val()[i as usize] as usize]
-			} else if self.val()[i as usize] == PADDING {
-				self.pad().unwrap_or(0)
+			let v = self.val()[i as usize];
+			let canonical = if (v as usize) < num_symbols {
+				self.sym()[v as usize]
+			} else if v == PADDING {
+				match self.pad() {
+					Some(p) => p,
+					None => continue,
+				}
 			} else {
 				continue;
 			};
@@ -2562,6 +2013,7 @@ impl Encoding {
 			specification.translate.from.push(i as char);
 			specification.translate.to.push(canonical as char);
 		}
+		specification.use_arithmetic = self.is_arithmetic();
 		specification
 	}
 
@@ -2580,87 +2032,64 @@ impl Encoding {
 
 /// Encodes fragmented input to an output
 ///
-/// It is equivalent to use an [`Encoder`] with multiple calls to [`Encoder::append()`] than to
-/// first concatenate all the input and then use [`Encoding::encode_append()`]. In particular, this
-/// function will not introduce padding or wrapping between inputs.
-///
-/// # Examples
-///
-/// ```rust
-/// // This is a bit inconvenient but we can't take a long-term reference to data_encoding::BASE64
-/// // because it's a constant. We need to use a static which has an address instead. This will be
-/// // fixed in version 3 of the library.
-/// static BASE64: data_encoding::Encoding = data_encoding::BASE64;
-/// let mut output = String::new();
-/// let mut encoder = BASE64.new_encoder(&mut output);
-/// encoder.append(b"hello");
-/// encoder.append(b"world");
-/// encoder.finalize();
-/// assert_eq!(output, BASE64.encode(b"helloworld"));
-/// ```
+/// Use this struct if your input is in several pieces.
 #[derive(Debug)]
-#[cfg(feature = "alloc")]
 pub struct Encoder<'a> {
 	encoding: &'a Encoding,
 	output: &'a mut String,
-	buffer: [u8; 255],
-	length: u8,
+	buffer: [u8; 8],
+	length: usize,
 }
 
-#[cfg(feature = "alloc")]
 impl Drop for Encoder<'_> {
 	fn drop(&mut self) {
-		self.encoding.encode_append(&self.buffer[..self.length as usize], self.output);
+		self.finalize();
 	}
 }
 
-#[cfg(feature = "alloc")]
 impl<'a> Encoder<'a> {
-	fn new(encoding: &'a Encoding, output: &'a mut String) -> Self {
+	fn new(encoding: &'a Encoding, output: &'a mut String) -> Encoder<'a> {
 		Encoder {
 			encoding,
 			output,
-			buffer: [0; 255],
+			buffer: [0u8; 8],
 			length: 0,
 		}
 	}
 
-	/// Encodes the provided input fragment and appends the result to the output
-	pub fn append(&mut self, mut input: &[u8]) {
-		#[allow(clippy::cast_possible_truncation)] // no truncation
-		let max = self.encoding.block_len().0 as u8;
-		if self.length != 0 {
-			let len = self.length;
-			#[allow(clippy::cast_possible_truncation)] // no truncation
-			let add = core::cmp::min((max - len) as usize, input.len()) as u8;
-			self.buffer[len as usize..][..add as usize].copy_from_slice(&input[..add as usize]);
-			self.length += add;
-			input = &input[add as usize..];
-			if self.length != max {
-				debug_assert!(self.length < max);
-				debug_assert!(input.is_empty());
-				return;
+	/// Appends the encoding of `input` to the output
+	pub fn append(&mut self, input: &[u8]) {
+		let mut input = input;
+		let (ilen, olen) = self.encoding.block_len();
+		if self.length > 0 {
+			let n = core::cmp::min(ilen - self.length, input.len());
+			self.buffer[self.length..self.length + n].copy_from_slice(&input[0..n]);
+			self.length += n;
+			input = &input[n..];
+			if self.length == ilen {
+				self.encoding.encode_append(&self.buffer[0..ilen], self.output);
+				self.length = 0;
 			}
-			self.encoding.encode_append(&self.buffer[..max as usize], self.output);
-			self.length = 0;
 		}
-		let len = floor(input.len(), max as usize);
-		self.encoding.encode_append(&input[..len], self.output);
-		input = &input[len..];
-		#[allow(clippy::cast_possible_truncation)] // no truncation
-		let len = input.len() as u8;
-		self.buffer[..len as usize].copy_from_slice(input);
-		self.length = len;
+		let n = floor(input.len(), ilen);
+		self.encoding.encode_append(&input[0..n], self.output);
+		input = &input[n..];
+		if !input.is_empty() {
+			self.buffer[0..input.len()].copy_from_slice(input);
+			self.length = input.len();
+		}
 	}
 
-	/// Makes sure all inputs have been encoded and appended to the output
-	///
-	/// This is equivalent to dropping the encoder and required for correctness, otherwise some
-	/// encoded data may be missing at the end.
-	pub fn finalize(self) {}
+	/// Finalizes the encoding
+	pub fn finalize(&mut self) {
+		if self.length > 0 {
+			self.encoding.encode_append(&self.buffer[0..self.length], self.output);
+			self.length = 0;
+		}
+	}
 }
 
-/// Wraps an encoding and input for display purposes.
+/// Displayable version of encoded data
 #[derive(Debug)]
 pub struct Display<'a> {
 	encoding: &'a Encoding,
@@ -2669,12 +2098,22 @@ pub struct Display<'a> {
 
 impl core::fmt::Display for Display<'_> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		self.encoding.encode_write(self.input, f)
+		let mut buffer = [0u8; 1024];
+		for chunk in self.input.chunks(floor(
+			1024 / self.encoding.block_len().1 * self.encoding.block_len().0,
+			self.encoding.block_len().0,
+		)) {
+			let len = self
+				.encoding
+				.encode_mut(chunk, &mut buffer[..self.encoding.encode_len(chunk.len()).unwrap()])
+				.unwrap();
+			write!(f, "{}", unsafe { core::str::from_utf8_unchecked(&buffer[..len]) })?;
+		}
+		Ok(())
 	}
 }
 
-#[derive(Debug, Copy, Clone)]
-#[cfg(feature = "alloc")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SpecificationErrorImpl {
 	BadSize,
 	NotAscii,
@@ -2686,76 +2125,64 @@ enum SpecificationErrorImpl {
 	FromTo,
 	Undefined(u8),
 }
-#[cfg(feature = "alloc")]
-use crate::SpecificationErrorImpl::*;
 
 /// Specification error
-#[derive(Debug, Copy, Clone)]
-#[cfg(feature = "alloc")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SpecificationError(SpecificationErrorImpl);
 
-#[cfg(feature = "alloc")]
 impl core::fmt::Display for SpecificationError {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self.0 {
-			BadSize => write!(f, "invalid number of symbols"),
-			NotAscii => write!(f, "non-ascii character"),
-			Duplicate(c) => write!(f, "{:?} has conflicting definitions", c as char),
-			ExtraPadding => write!(f, "unnecessary padding"),
-			WrapLength => write!(f, "invalid wrap width or separator length"),
-			WrapSeparator => write!(f, "wrap separator too long (max 15 bytes)"),
-			WrapWidth(x) => write!(f, "wrap width not a multiple of {}", x),
-			FromTo => write!(f, "translate from/to length mismatch"),
-			Undefined(c) => write!(f, "{:?} is undefined", c as char),
+			SpecificationErrorImpl::BadSize => write!(f, "invalid number of symbols"),
+			SpecificationErrorImpl::NotAscii => write!(f, "non-ascii character"),
+			SpecificationErrorImpl::Duplicate(c) => {
+				write!(f, "{:?} has conflicting definitions", c as char)
+			}
+			SpecificationErrorImpl::ExtraPadding => write!(f, "unnecessary padding"),
+			SpecificationErrorImpl::WrapLength => {
+				write!(f, "invalid wrap width or separator length")
+			}
+			SpecificationErrorImpl::WrapSeparator => write!(f, "invalid wrap separator"),
+			SpecificationErrorImpl::WrapWidth(n) => write!(f, "wrap width not a multiple of {}", n),
+			SpecificationErrorImpl::FromTo => write!(f, "translate from/to length mismatch"),
+			SpecificationErrorImpl::Undefined(c) => write!(f, "{:?} is undefined", c as char),
 		}
 	}
 }
 
-#[cfg(feature = "std")]
 impl std::error::Error for SpecificationError {
 	fn description(&self) -> &str {
 		match self.0 {
-			BadSize => "invalid number of symbols",
-			NotAscii => "non-ascii character",
-			Duplicate(_) => "conflicting definitions",
-			ExtraPadding => "unnecessary padding",
-			WrapLength => "invalid wrap width or separator length",
-			WrapWidth(_) => "wrap width not a multiple",
-			WrapSeparator => "wrap separator too long",
-			FromTo => "translate from/to length mismatch",
-			Undefined(_) => "undefined character",
+			SpecificationErrorImpl::BadSize => "invalid number of symbols",
+			SpecificationErrorImpl::NotAscii => "non-ascii character",
+			SpecificationErrorImpl::Duplicate(_) => "conflicting definitions",
+			SpecificationErrorImpl::ExtraPadding => "unnecessary padding",
+			SpecificationErrorImpl::WrapLength => "invalid wrap width or separator length",
+			SpecificationErrorImpl::WrapSeparator => "invalid wrap separator",
+			SpecificationErrorImpl::WrapWidth(_) => "wrap width mismatch",
+			SpecificationErrorImpl::FromTo => "translate mismatch",
+			SpecificationErrorImpl::Undefined(_) => "undefined character",
 		}
 	}
 }
-#[cfg(feature = "alloc")]
+
 impl Specification {
-	/// Returns a default specification
-
+	/// Returns a new empty specification
 	#[must_use]
-
 	pub fn new() -> Specification {
 		Specification {
 			symbols: String::new(),
-
 			bit_order: MostSignificantFirst,
-
 			check_trailing_bits: true,
-
 			padding: None,
-
-			padding_mode: PaddingMode::None,
-
+			padding_mode: PaddingMode::Standard,
 			ignore: String::new(),
-
 			wrap: Wrap {
 				width: 0,
-
 				separator: String::new(),
 			},
-
 			translate: Translate {
 				from: String::new(),
-
 				to: String::new(),
 			},
 
@@ -2772,13 +2199,17 @@ impl Specification {
 	pub fn encoding(&self) -> Result<Encoding, SpecificationError> {
 		let symbols = self.symbols.as_bytes();
 
+		if symbols.is_empty() {
+			return Err(SpecificationError(SpecificationErrorImpl::BadSize));
+		}
+
 		// Détection automatique si l'encodage arithmétique doit être utilisé
 		let use_arithmetic = self.use_arithmetic || ![2, 4, 8, 16, 32, 64].contains(&symbols.len());
 
 		// Pour les bases arithmétiques, valider que les symboles sont ASCII
 		if use_arithmetic {
 			for &symbol in symbols {
-				check!(SpecificationError(NotAscii), symbol < 128);
+				check!(SpecificationError(SpecificationErrorImpl::NotAscii), symbol < 128);
 			}
 		}
 
@@ -2791,21 +2222,22 @@ impl Specification {
 			64 => 6,
 			_ => {
 				if use_arithmetic {
-					// Pour les bases arithmétiques, on utilise une valeur par défaut
-					// La valeur exacte n'est pas utilisée pour l'encodage arithmétique
-					8
+					0
 				} else {
-					return Err(SpecificationError(BadSize));
+					return Err(SpecificationError(SpecificationErrorImpl::BadSize));
 				}
 			}
 		};
 		let mut values = [INVALID; 128];
 		let set = |v: &mut [u8; 128], i: u8, x: u8| {
-			check!(SpecificationError(NotAscii), i < 128);
+			check!(SpecificationError(SpecificationErrorImpl::NotAscii), i < 128);
 			if v[i as usize] == x {
 				return Ok(());
 			}
-			check!(SpecificationError(Duplicate(i)), v[i as usize] == INVALID);
+			check!(
+				SpecificationError(SpecificationErrorImpl::Duplicate(i)),
+				v[i as usize] == INVALID
+			);
 			v[i as usize] = x;
 			Ok(())
 		};
@@ -2814,12 +2246,14 @@ impl Specification {
 			set(&mut values, *symbols, v as u8)?;
 		}
 		let msb = self.bit_order == MostSignificantFirst;
-		let ctb = self.check_trailing_bits || 8 % bit == 0;
+		let ctb = self.check_trailing_bits || (!use_arithmetic && 8 % bit == 0);
 		let pad = match self.padding {
 			None => None,
 			Some(pad) => {
-				check!(SpecificationError(ExtraPadding), 8 % bit != 0);
-				check!(SpecificationError(NotAscii), pad.len_utf8() == 1);
+				if !use_arithmetic {
+					check!(SpecificationError(SpecificationErrorImpl::ExtraPadding), 8 % bit != 0);
+				}
+				check!(SpecificationError(SpecificationErrorImpl::NotAscii), pad.len_utf8() == 1);
 				set(&mut values, pad as u8, PADDING)?;
 				Some(pad as u8)
 			}
@@ -2832,13 +2266,16 @@ impl Specification {
 		} else {
 			let col = self.wrap.width;
 			let end = self.wrap.separator.as_bytes();
-			check!(SpecificationError(WrapSeparator), end.len() <= 15);
-			check!(SpecificationError(WrapLength), col < 256 && end.len() < 256);
+			check!(SpecificationError(SpecificationErrorImpl::WrapSeparator), end.len() <= 15);
+			check!(
+				SpecificationError(SpecificationErrorImpl::WrapLength),
+				col < 256 && end.len() < 256
+			);
 			#[allow(clippy::cast_possible_truncation)] // no truncation
 			let col = col as u8;
 			#[allow(clippy::cast_possible_truncation)] // no truncation
 			let dec = dec(bit as usize) as u8;
-			check!(SpecificationError(WrapWidth(dec)), col % dec == 0);
+			check!(SpecificationError(SpecificationErrorImpl::WrapWidth(dec)), col % dec == 0);
 			for &i in end {
 				set(&mut values, i, IGNORE)?;
 			}
@@ -2846,11 +2283,11 @@ impl Specification {
 		};
 		let from = self.translate.from.as_bytes();
 		let to = self.translate.to.as_bytes();
-		check!(SpecificationError(FromTo), from.len() == to.len());
+		check!(SpecificationError(SpecificationErrorImpl::FromTo), from.len() == to.len());
 		for i in 0..from.len() {
-			check!(SpecificationError(NotAscii), to[i] < 128);
+			check!(SpecificationError(SpecificationErrorImpl::NotAscii), to[i] < 128);
 			let v = values[to[i] as usize];
-			check!(SpecificationError(Undefined(to[i])), v != INVALID);
+			check!(SpecificationError(SpecificationErrorImpl::Undefined(to[i])), v != INVALID);
 			set(&mut values, from[i], v)?;
 		}
 		let mut encoding = [INVALID; 531];
@@ -2861,29 +2298,29 @@ impl Specification {
 				encoding[i] = symbols[i % symbols.len()];
 			}
 		}
+		encoding[256..512].copy_from_slice(&[INVALID; 256]);
 		encoding[256..384].copy_from_slice(&values);
-		encoding[384..512].copy_from_slice(&[INVALID; 128]);
 		if use_arithmetic {
-			// Stocker la taille de la base pour l'encodage arithmétique
-			encoding[384] = symbols.len() as u8;
-		}
-		match pad {
-			None => encoding[512] = INVALID,
-			Some(pad) => encoding[512] = pad,
+			encoding[512] = symbols.len() as u8;
+		} else {
+			match pad {
+				None => encoding[512] = INVALID,
+				Some(pad) => encoding[512] = pad,
+			}
 		}
 
 		if use_arithmetic {
 			encoding[513] = 0x80;
 		} else {
 			encoding[513] = bit;
+		}
 
-			if msb {
-				encoding[513] |= 0x08;
-			}
+		if msb {
+			encoding[513] |= 0x08;
+		}
 
-			if ctb {
-				encoding[513] |= 0x10;
-			}
+		if ctb {
+			encoding[513] |= 0x10;
 		}
 
 		let mode_bits = match self.padding_mode {
@@ -2911,887 +2348,65 @@ impl Specification {
 }
 
 /// Lowercase hexadecimal encoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, HEXLOWER};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("0123456789abcdef");
-/// assert_eq!(HEXLOWER, spec.encoding().unwrap());
-/// ```
-///
-/// # Examples
-///
-/// ```rust
-/// use data_encoding::HEXLOWER;
-/// let deadbeef = vec![0xde, 0xad, 0xbe, 0xef];
-/// assert_eq!(HEXLOWER.decode(b"deadbeef").unwrap(), deadbeef);
-/// assert_eq!(HEXLOWER.encode(&deadbeef), "deadbeef");
-/// ```
-pub const HEXLOWER: Encoding = Encoding::internal_new(HEXLOWER_IMPL);
-const HEXLOWER_IMPL: &[u8] = &[
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54,
-	55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100,
-	101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51,
-	52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97,
-	98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48,
-	49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100,
-	101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51,
-	52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97,
-	98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48,
-	49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 97, 98, 99, 100, 101, 102, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 0, 1, 2,
-	3, 4, 5, 6, 7, 8, 9, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 10, 11, 12, 13, 14, 15, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 28,
-];
+pub const HEXLOWER: Encoding = Encoding::internal_new(data::HEXLOWER_IMPL);
 
 /// Lowercase hexadecimal encoding with case-insensitive decoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, HEXLOWER_PERMISSIVE};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("0123456789abcdef");
-/// spec.translate.from.push_str("ABCDEF");
-/// spec.translate.to.push_str("abcdef");
-/// assert_eq!(HEXLOWER_PERMISSIVE, spec.encoding().unwrap());
-/// ```
-///
-/// # Examples
-///
-/// ```rust
-/// use data_encoding::HEXLOWER_PERMISSIVE;
-/// let deadbeef = vec![0xde, 0xad, 0xbe, 0xef];
-/// assert_eq!(HEXLOWER_PERMISSIVE.decode(b"DeadBeef").unwrap(), deadbeef);
-/// assert_eq!(HEXLOWER_PERMISSIVE.encode(&deadbeef), "deadbeef");
-/// ```
-///
-/// You can also define a shorter name:
-///
-/// ```rust
-/// use data_encoding::{Encoding, HEXLOWER_PERMISSIVE};
-/// const HEX: Encoding = HEXLOWER_PERMISSIVE;
-/// ```
-pub const HEXLOWER_PERMISSIVE: Encoding =
-	Encoding(InternalEncoding::Static(HEXLOWER_PERMISSIVE_IMPL));
-const HEXLOWER_PERMISSIVE_IMPL: &[u8] = &[
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54,
-	55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100,
-	101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51,
-	52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97,
-	98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48,
-	49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100,
-	101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51,
-	52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97,
-	98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48,
-	49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 97, 98, 99, 100, 101, 102, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 0, 1, 2,
-	3, 4, 5, 6, 7, 8, 9, 128, 128, 128, 128, 128, 128, 128, 10, 11, 12, 13, 14, 15, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 10, 11, 12, 13, 14, 15, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 28,
-];
+pub const HEXLOWER_PERMISSIVE: Encoding = Encoding::internal_new(data::HEXLOWER_PERMISSIVE_IMPL);
 
 /// Uppercase hexadecimal encoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, HEXUPPER};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("0123456789ABCDEF");
-/// assert_eq!(HEXUPPER, spec.encoding().unwrap());
-/// ```
-///
-/// It is compliant with [RFC4648] and known as "base16" or "hex".
-///
-/// # Examples
-///
-/// ```rust
-/// use data_encoding::HEXUPPER;
-/// let deadbeef = vec![0xde, 0xad, 0xbe, 0xef];
-/// assert_eq!(HEXUPPER.decode(b"DEADBEEF").unwrap(), deadbeef);
-/// assert_eq!(HEXUPPER.encode(&deadbeef), "DEADBEEF");
-/// ```
-///
-/// [RFC4648]: https://tools.ietf.org/html/rfc4648#section-8
-pub const HEXUPPER: Encoding = Encoding::internal_new(HEXUPPER_IMPL);
-const HEXUPPER_IMPL: &[u8] = &[
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 128, 128, 128, 128, 128, 128, 128, 10, 11,
-	12, 13, 14, 15, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 28,
-];
+pub const HEXUPPER: Encoding = Encoding::internal_new(data::HEXUPPER_IMPL);
 
 /// Uppercase hexadecimal encoding with case-insensitive decoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, HEXUPPER_PERMISSIVE};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("0123456789ABCDEF");
-/// spec.translate.from.push_str("abcdef");
-/// spec.translate.to.push_str("ABCDEF");
-/// assert_eq!(HEXUPPER_PERMISSIVE, spec.encoding().unwrap());
-/// ```
-///
-/// # Examples
-///
-/// ```rust
-/// use data_encoding::HEXUPPER_PERMISSIVE;
-/// let deadbeef = vec![0xde, 0xad, 0xbe, 0xef];
-/// assert_eq!(HEXUPPER_PERMISSIVE.decode(b"DeadBeef").unwrap(), deadbeef);
-/// assert_eq!(HEXUPPER_PERMISSIVE.encode(&deadbeef), "DEADBEEF");
-/// ```
-pub const HEXUPPER_PERMISSIVE: Encoding =
-	Encoding(InternalEncoding::Static(HEXUPPER_PERMISSIVE_IMPL));
-const HEXUPPER_PERMISSIVE_IMPL: &[u8] = &[
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 128, 128, 128, 128, 128, 128, 128, 10, 11,
-	12, 13, 14, 15, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 10, 11, 12, 13, 14, 15, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 28,
-];
+pub const HEXUPPER_PERMISSIVE: Encoding = Encoding::internal_new(data::HEXUPPER_PERMISSIVE_IMPL);
 
 /// Padded base32 encoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, BASE32};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567");
-/// spec.padding = Some('=');
-/// assert_eq!(BASE32, spec.encoding().unwrap());
-/// ```
-///
-/// It conforms to [RFC4648].
-///
-/// [RFC4648]: https://tools.ietf.org/html/rfc4648#section-6
-pub const BASE32: Encoding = Encoding::internal_new(BASE32_IMPL);
-const BASE32_IMPL: &[u8] = &[
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
-	81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72,
-	73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55,
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
-	81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72,
-	73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55,
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
-	81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 26, 27, 28, 29, 30, 31, 128, 128, 128, 128, 128, 130, 128, 128,
-	128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-	25, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 61, 29,
-];
+pub const BASE32: Encoding = Encoding::internal_new(data::BASE32_IMPL);
 
 /// Unpadded base32 encoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, BASE32_NOPAD};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567");
-/// assert_eq!(BASE32_NOPAD, spec.encoding().unwrap());
-/// ```
-pub const BASE32_NOPAD: Encoding = Encoding(InternalEncoding::Static(BASE32_NOPAD_IMPL));
-const BASE32_NOPAD_IMPL: &[u8] = &[
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
-	81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72,
-	73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55,
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
-	81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72,
-	73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55,
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
-	81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 26, 27, 28, 29, 30, 31, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-	25, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 29,
-];
+pub const BASE32_NOPAD: Encoding = Encoding::internal_new(data::BASE32_NOPAD_IMPL);
 
 /// Unpadded base32 encoding with case-insensitive decoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, BASE32_NOPAD_NOCASE};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567");
-/// spec.translate.from.push_str("abcdefghijklmnopqrstuvwxyz");
-/// spec.translate.to.push_str("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-/// assert_eq!(BASE32_NOPAD_NOCASE, spec.encoding().unwrap());
-/// ```
-pub const BASE32_NOPAD_NOCASE: Encoding =
-	Encoding(InternalEncoding::Static(BASE32_NOPAD_NOCASE_IMPL));
-const BASE32_NOPAD_NOCASE_IMPL: &[u8] = &[
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
-	81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72,
-	73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55,
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
-	81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72,
-	73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55,
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
-	81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 26, 27, 28, 29, 30, 31, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-	25, 128, 128, 128, 128, 128, 128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
-	18, 19, 20, 21, 22, 23, 24, 25, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 29,
-];
+pub const BASE32_NOPAD_NOCASE: Encoding = Encoding::internal_new(data::BASE32_NOPAD_NOCASE_IMPL);
 
 /// Unpadded base32 encoding with visual error correction during decoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, BASE32_NOPAD_VISUAL};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567");
-/// spec.translate.from.push_str("01l8");
-/// spec.translate.to.push_str("OIIB");
-/// assert_eq!(BASE32_NOPAD_VISUAL, spec.encoding().unwrap());
-/// ```
-pub const BASE32_NOPAD_VISUAL: Encoding =
-	Encoding(InternalEncoding::Static(BASE32_NOPAD_VISUAL_IMPL));
-const BASE32_NOPAD_VISUAL_IMPL: &[u8] = &[
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
-	81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72,
-	73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55,
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
-	81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72,
-	73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55,
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
-	81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 50, 51, 52, 53, 54, 55, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 14, 8, 26, 27, 28, 29, 30, 31, 1, 128, 128, 128, 128, 128, 128, 128, 128,
-	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 8, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 29,
-];
+pub const BASE32_NOPAD_VISUAL: Encoding = Encoding::internal_new(data::BASE32_NOPAD_VISUAL_IMPL);
 
 /// Padded base32hex encoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, BASE32HEX};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("0123456789ABCDEFGHIJKLMNOPQRSTUV");
-/// spec.padding = Some('=');
-/// assert_eq!(BASE32HEX, spec.encoding().unwrap());
-/// ```
-///
-/// It conforms to [RFC4648].
-///
-/// [RFC4648]: https://tools.ietf.org/html/rfc4648#section-7
-pub const BASE32HEX: Encoding = Encoding(InternalEncoding::Static(BASE32HEX_IMPL));
-const BASE32HEX_IMPL: &[u8] = &[
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78,
-	79, 80, 81, 82, 83, 84, 85, 86, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78,
-	79, 80, 81, 82, 83, 84, 85, 86, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78,
-	79, 80, 81, 82, 83, 84, 85, 86, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 128, 128, 128, 130, 128, 128, 128, 10, 11,
-	12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 61, 29,
-];
+pub const BASE32HEX: Encoding = Encoding::internal_new(data::BASE32HEX_IMPL);
 
 /// Unpadded base32hex encoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, BASE32HEX_NOPAD};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("0123456789ABCDEFGHIJKLMNOPQRSTUV");
-/// assert_eq!(BASE32HEX_NOPAD, spec.encoding().unwrap());
-/// ```
-pub const BASE32HEX_NOPAD: Encoding = Encoding(InternalEncoding::Static(BASE32HEX_NOPAD_IMPL));
-const BASE32HEX_NOPAD_IMPL: &[u8] = &[
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78,
-	79, 80, 81, 82, 83, 84, 85, 86, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78,
-	79, 80, 81, 82, 83, 84, 85, 86, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 48, 49, 50, 51, 52, 53, 54, 55,
-	56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86,
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78,
-	79, 80, 81, 82, 83, 84, 85, 86, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70,
-	71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 128, 128, 128, 128, 128, 128, 128, 10, 11,
-	12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 29,
-];
+pub const BASE32HEX_NOPAD: Encoding = Encoding::internal_new(data::BASE32HEX_NOPAD_IMPL);
 
 /// DNSSEC base32 encoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, BASE32_DNSSEC};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("0123456789abcdefghijklmnopqrstuv");
-/// spec.translate.from.push_str("ABCDEFGHIJKLMNOPQRSTUV");
-/// spec.translate.to.push_str("abcdefghijklmnopqrstuv");
-/// assert_eq!(BASE32_DNSSEC, spec.encoding().unwrap());
-/// ```
-///
-/// It conforms to [RFC5155]:
-///
-/// - It uses a base32 extended hex alphabet.
-/// - It is case-insensitive when decoding and uses lowercase when encoding.
-/// - It does not use padding.
-///
-/// [RFC5155]: https://tools.ietf.org/html/rfc5155
-pub const BASE32_DNSSEC: Encoding = Encoding(InternalEncoding::Static(BASE32_DNSSEC_IMPL));
-const BASE32_DNSSEC_IMPL: &[u8] = &[
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107,
-	108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57,
-	97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
-	116, 117, 118, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 103, 104,
-	105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 48, 49, 50, 51, 52, 53,
-	54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112,
-	113, 114, 115, 116, 117, 118, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101,
-	102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 48, 49,
-	50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109,
-	110, 111, 112, 113, 114, 115, 116, 117, 118, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98,
-	99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117,
-	118, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106,
-	107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 128, 128, 128, 128, 128, 128, 128, 10, 11, 12, 13,
-	14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-	26, 27, 28, 29, 30, 31, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 29,
-];
+pub const BASE32_DNSSEC: Encoding = Encoding::internal_new(data::BASE32_DNSSEC_IMPL);
 
-#[allow(clippy::doc_markdown)]
 /// DNSCurve base32 encoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{BitOrder, Specification, BASE32_DNSCURVE};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("0123456789bcdfghjklmnpqrstuvwxyz");
-/// spec.bit_order = BitOrder::LeastSignificantFirst;
-/// spec.translate.from.push_str("BCDFGHJKLMNPQRSTUVWXYZ");
-/// spec.translate.to.push_str("bcdfghjklmnpqrstuvwxyz");
-/// assert_eq!(BASE32_DNSCURVE, spec.encoding().unwrap());
-/// ```
-///
-/// It conforms to [DNSCurve].
-///
-/// [DNSCurve]: https://dnscurve.org/in-implement.html
-pub const BASE32_DNSCURVE: Encoding = Encoding(InternalEncoding::Static(BASE32_DNSCURVE_IMPL));
-const BASE32_DNSCURVE_IMPL: &[u8] = &[
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 98, 99, 100, 102, 103, 104, 106, 107, 108, 109, 110,
-	112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57,
-	98, 99, 100, 102, 103, 104, 106, 107, 108, 109, 110, 112, 113, 114, 115, 116, 117, 118, 119,
-	120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 98, 99, 100, 102, 103, 104, 106, 107,
-	108, 109, 110, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53,
-	54, 55, 56, 57, 98, 99, 100, 102, 103, 104, 106, 107, 108, 109, 110, 112, 113, 114, 115, 116,
-	117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 98, 99, 100, 102, 103,
-	104, 106, 107, 108, 109, 110, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 48, 49,
-	50, 51, 52, 53, 54, 55, 56, 57, 98, 99, 100, 102, 103, 104, 106, 107, 108, 109, 110, 112, 113,
-	114, 115, 116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 98, 99,
-	100, 102, 103, 104, 106, 107, 108, 109, 110, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121,
-	122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 98, 99, 100, 102, 103, 104, 106, 107, 108, 109,
-	110, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 128, 128, 128, 128, 128, 128, 128, 128, 10, 11,
-	12, 128, 13, 14, 15, 128, 16, 17, 18, 19, 20, 128, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-	128, 128, 128, 128, 128, 128, 128, 10, 11, 12, 128, 13, 14, 15, 128, 16, 17, 18, 19, 20, 128,
-	21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 21,
-];
+pub const BASE32_DNSCURVE: Encoding = Encoding::internal_new(data::BASE32_DNSCURVE_IMPL);
 
 /// Padded base64 encoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, BASE64};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
-/// spec.padding = Some('=');
-/// assert_eq!(BASE64, spec.encoding().unwrap());
-/// ```
-///
-/// It conforms to [RFC4648].
-///
-/// [RFC4648]: https://tools.ietf.org/html/rfc4648#section-4
-pub const BASE64: Encoding = Encoding::internal_new(BASE64_IMPL);
-const BASE64_IMPL: &[u8] = &[
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
-	115, 116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 65, 66,
-	67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
-	97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
-	116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 65, 66, 67,
-	68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97,
-	98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116,
-	117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 65, 66, 67, 68,
-	69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97, 98,
-	99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117,
-	118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 62, 128, 128, 128, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 128, 128, 128, 130, 128,
-	128, 128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-	24, 25, 128, 128, 128, 128, 128, 128, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-	40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 61, 30,
-];
+pub const BASE64: Encoding = Encoding::internal_new(data::BASE64_IMPL);
 
 /// Unpadded base64 encoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, BASE64_NOPAD};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
-/// assert_eq!(BASE64_NOPAD, spec.encoding().unwrap());
-/// ```
-pub const BASE64_NOPAD: Encoding = Encoding(InternalEncoding::Static(BASE64_NOPAD_IMPL));
-const BASE64_NOPAD_IMPL: &[u8] = &[
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
-	115, 116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 65, 66,
-	67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
-	97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
-	116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 65, 66, 67,
-	68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97,
-	98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116,
-	117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 65, 66, 67, 68,
-	69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97, 98,
-	99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117,
-	118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 62, 128, 128, 128, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 128, 128, 128, 128, 128,
-	128, 128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-	24, 25, 128, 128, 128, 128, 128, 128, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-	40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 30,
-];
+pub const BASE64_NOPAD: Encoding = Encoding::internal_new(data::BASE64_NOPAD_IMPL);
 
 /// MIME base64 encoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, BASE64_MIME};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
-/// spec.padding = Some('=');
-/// spec.wrap.width = 76;
-/// spec.wrap.separator.push_str("\r\n");
-/// assert_eq!(BASE64_MIME, spec.encoding().unwrap());
-/// ```
-///
-/// It does not exactly conform to [RFC2045] because it does not print the header
-/// and does not ignore all characters.
-///
-/// [RFC2045]: https://tools.ietf.org/html/rfc2045
-pub const BASE64_MIME: Encoding = Encoding(InternalEncoding::Static(BASE64_MIME_IMPL));
-const BASE64_MIME_IMPL: &[u8] = &[
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
-	115, 116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 65, 66,
-	67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
-	97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
-	116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 65, 66, 67,
-	68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97,
-	98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116,
-	117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 65, 66, 67, 68,
-	69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97, 98,
-	99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117,
-	118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 129, 128, 128, 129, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 62, 128, 128, 128, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 128, 128, 128, 130, 128,
-	128, 128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-	24, 25, 128, 128, 128, 128, 128, 128, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-	40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 61, 30, 76, 13, 10,
-];
+pub const BASE64_MIME: Encoding = Encoding::internal_new(data::BASE64_MIME_IMPL);
 
 /// MIME base64 encoding without trailing bits check
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, BASE64_MIME_PERMISSIVE};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
-/// spec.padding = Some('=');
-/// spec.wrap.width = 76;
-/// spec.wrap.separator.push_str("\r\n");
-/// spec.check_trailing_bits = false;
-/// assert_eq!(BASE64_MIME_PERMISSIVE, spec.encoding().unwrap());
-/// ```
-///
-/// It does not exactly conform to [RFC2045] because it does not print the header
-/// and does not ignore all characters.
-///
-/// [RFC2045]: https://tools.ietf.org/html/rfc2045
 pub const BASE64_MIME_PERMISSIVE: Encoding =
-	Encoding(InternalEncoding::Static(BASE64_MIME_PERMISSIVE_IMPL));
-const BASE64_MIME_PERMISSIVE_IMPL: &[u8] = &[
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
-	115, 116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 65, 66,
-	67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
-	97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
-	116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 65, 66, 67,
-	68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97,
-	98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116,
-	117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 65, 66, 67, 68,
-	69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97, 98,
-	99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117,
-	118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 47, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 129, 128, 128, 129, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 62, 128, 128, 128, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 128, 128, 128, 130, 128,
-	128, 128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-	24, 25, 128, 128, 128, 128, 128, 128, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-	40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 30,
-];
+	Encoding::internal_new(data::BASE64_MIME_PERMISSIVE_IMPL);
 
 /// Padded base64url encoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, BASE64URL};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_");
-/// spec.padding = Some('=');
-/// assert_eq!(BASE64URL, spec.encoding().unwrap());
-/// ```
-///
-/// It conforms to [RFC4648].
-///
-/// [RFC4648]: https://tools.ietf.org/html/rfc4648#section-5
-pub const BASE64URL: Encoding = Encoding(InternalEncoding::Static(BASE64URL_IMPL));
-const BASE64URL_IMPL: &[u8] = &[
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
-	115, 116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 45, 95, 65, 66,
-	67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
-	97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
-	116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 45, 95, 65, 66, 67,
-	68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97,
-	98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116,
-	117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 45, 95, 65, 66, 67, 68,
-	69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97, 98,
-	99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117,
-	118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 45, 95, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 62, 128, 128, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 128, 128, 128, 130, 128,
-	128, 128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-	24, 25, 128, 128, 128, 128, 63, 128, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-	40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 61, 30,
-];
+pub const BASE64URL: Encoding = Encoding::internal_new(data::BASE64URL_IMPL);
 
 /// Unpadded base64url encoding
-///
-/// This encoding is a static version of:
-///
-/// ```rust
-/// # use data_encoding::{Specification, BASE64URL_NOPAD};
-/// let mut spec = Specification::new();
-/// spec.symbols.push_str("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_");
-/// assert_eq!(BASE64URL_NOPAD, spec.encoding().unwrap());
-/// ```
-pub const BASE64URL_NOPAD: Encoding = Encoding(InternalEncoding::Static(BASE64URL_NOPAD_IMPL));
-const BASE64URL_NOPAD_IMPL: &[u8] = &[
-	65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
-	115, 116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 45, 95, 65, 66,
-	67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
-	97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
-	116, 117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 45, 95, 65, 66, 67,
-	68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97,
-	98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116,
-	117, 118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 45, 95, 65, 66, 67, 68,
-	69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97, 98,
-	99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117,
-	118, 119, 120, 121, 122, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 45, 95, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 62, 128, 128, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 128, 128, 128, 128, 128,
-	128, 128, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-	24, 25, 128, 128, 128, 128, 63, 128, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-	40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 30,
-];
+pub const BASE64URL_NOPAD: Encoding = Encoding::internal_new(data::BASE64URL_NOPAD_IMPL);
 
 /// Base58 encoding (Bitcoin alphabet)
-pub const BASE58: Encoding = Encoding(InternalEncoding::Static(BASE58_IMPL));
-const BASE58_IMPL: &[u8] = &[
-	49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 74, 75, 76, 77, 78, 80, 81,
-	82, 83, 84, 85, 86, 87, 88, 89, 90, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 109,
-	110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 0, 1, 2, 3, 4, 5, 6,
-	7, 8, 128, 128, 128, 128, 128, 128, 128, 9, 10, 11, 12, 13, 14, 15, 16, 128, 17, 18, 19, 20,
-	21, 128, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 128, 128, 128, 128, 128, 128, 33, 34, 35,
-	36, 37, 38, 39, 40, 41, 42, 43, 128, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57,
-	128, 128, 128, 128, 128, 58, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 58, 0, 0, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-];
+pub const BASE58: Encoding = Encoding::internal_new(data::BASE58_IMPL);
 
 /// Base62 encoding
-pub const BASE62: Encoding = Encoding(InternalEncoding::Static(BASE62_IMPL));
-const BASE62_IMPL: &[u8] = &[
-	48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78,
-	79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106,
-	107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 0, 1, 2, 3, 4, 5, 6,
-	7, 8, 9, 128, 128, 128, 128, 128, 128, 128, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-	23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 128, 128, 128, 128, 128, 128, 36, 37, 38,
-	39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
-	128, 128, 128, 128, 128, 62, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 62, 0, 0, 128, 128, 128, 128, 128,
-	128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-];
+pub const BASE62: Encoding = Encoding::internal_new(data::BASE62_IMPL);
 
 #[cfg(test)]
 mod tests {

@@ -901,9 +901,9 @@ fn encode_append() {
 #[test]
 fn encode_write() {
 	fn test(input: &[u8], output: &str, expected: &str) {
-		let mut output = output.to_string();
+		let mut output = output.as_bytes().to_vec();
 		data_encoding::BASE64.encode_write(input, &mut output).unwrap();
-		assert_eq!(output, expected);
+		assert_eq!(output, expected.as_bytes());
 	}
 	test(b"", "", "");
 	test(b"foo", "", "Zm9v");
@@ -918,11 +918,12 @@ fn encoder() {
 	fn test(inputs: &[&[u8]], expected: &str) {
 		let mut output = String::new();
 		static BASE64: Encoding = data_encoding::BASE64;
-		let mut encoder = BASE64.new_encoder(&mut output);
-		for input in inputs {
-			encoder.append(input);
+		{
+			let mut encoder = BASE64.new_encoder(&mut output);
+			for input in inputs {
+				encoder.append(input);
+			}
 		}
-		encoder.finalize();
 		assert_eq!(output, expected);
 	}
 	test(&[], "");
